@@ -1,13 +1,160 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { DeploymentPanel, DeploymentSuccess } from '../components/DeploymentPanel';
+// @ts-ignore
 import { useApp } from '../context/AppContext';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Server, CheckCircle2, Copy, Download, Terminal, Check } from 'lucide-react';
+
+export function DeploymentPanel({ onDeploy, isDeploying }: { onDeploy: () => void, isDeploying: boolean }) {
+  // Safe context extraction for environments
+  let context: any = null;
+  try { context = useApp(); } catch(e) {}
+  const selectedEndpoints = context?.selectedEndpoints || new Set();
+
+  return (
+    <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center transition-colors">
+      <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+        <Server className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+      </div>
+      <h2 className="text-2xl font-semibold text-[#141B41] dark:text-white mb-4">Ready to Deploy</h2>
+      <p className="text-slate-600 dark:text-slate-400 max-w-lg mx-auto mb-8">
+        You have selected {selectedEndpoints.size} endpoints. We will securely deploy an MCP server configuration that proxies requests through your provided credentials.
+      </p>
+      <button
+        onClick={onDeploy}
+        disabled={isDeploying || selectedEndpoints.size === 0}
+        className="px-8 py-3.5 bg-[#141B41] hover:bg-[#1a2352] dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+      >
+        {isDeploying ? 'Deploying Server...' : 'Deploy MCP Server'}
+      </button>
+    </div>
+  );
+}
+
+export function DeploymentSuccess() {
+  // Safe context extraction for environments
+  let context: any = null;
+  try { context = useApp(); } catch(e) {}
+  const deploymentInfo = context?.deploymentInfo;
+  const selectedEndpoints = context?.selectedEndpoints || new Set();
+
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
+  
+  if (!deploymentInfo) return null;
+
+  const serverUrl = deploymentInfo.serverUrl || 'http://localhost:3000/sse/example-id';
+  
+  const copyToClipboard = (text: string, setter: (val: boolean) => void) => {
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
+  };
+
+  const claudeConfig = {
+    mcpServers: {
+      "my-api": {
+        command: "npx",
+        args: [
+          "-y",
+          "@modelcontextprotocol/server-sse",
+          serverUrl
+        ],
+        env: {
+          MCP_API_KEY: deploymentInfo.apiKey || "no-key-provided"
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Success Banner */}
+      <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/50 rounded-2xl p-6 sm:p-8 transition-colors shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+          <div className="bg-green-500 rounded-full p-1.5 shrink-0 sm:mt-1">
+             <Check className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex-1 w-full">
+            <h2 className="text-2xl font-semibold text-green-800 dark:text-green-400 mb-2">Successfully Deployed!</h2>
+            <p className="text-green-700 dark:text-green-300 mb-6 text-sm sm:text-base">
+              Your MCP server is live with {selectedEndpoints.size} endpoints. Copy the configuration below to connect your AI client.
+            </p>
+            
+            <div className="relative w-full">
+              <label className="text-sm font-medium text-green-800 dark:text-green-400 mb-1.5 block">Server URL</label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={serverUrl}
+                  className="w-full bg-white dark:bg-green-950/50 border border-green-200 dark:border-green-800/80 rounded-xl px-4 py-3 text-[#141B41] dark:text-green-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-colors"
+                />
+                <button 
+                  onClick={() => copyToClipboard(serverUrl, setCopiedUrl)}
+                  className="px-6 py-3 bg-green-100 hover:bg-green-200 dark:bg-green-900/50 dark:hover:bg-green-800 border border-green-200 dark:border-green-800 rounded-xl text-green-800 dark:text-green-300 font-medium transition-colors flex items-center justify-center gap-2 shrink-0"
+                >
+                  {copiedUrl ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copiedUrl ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Configuration Snippets */}
+      <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 transition-colors shadow-sm">
+        <h3 className="text-2xl font-semibold text-[#141B41] dark:text-white mb-2">Client Configuration Snippets</h3>
+        <p className="text-slate-600 dark:text-slate-400 mb-8">Choose your AI client and copy the configuration:</p>
+
+        <div className="space-y-6">
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <h4 className="text-lg font-medium text-[#141B41] dark:text-white flex items-center gap-3">
+                Claude Desktop
+                <a href="https://claude.ai/download" target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 font-normal bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md transition-colors">
+                  <Download className="h-3 w-3" /> Download
+                </a>
+              </h4>
+              <button 
+                onClick={() => copyToClipboard(JSON.stringify(claudeConfig, null, 2), setCopiedJson)}
+                className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+              >
+                {copiedJson ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                {copiedJson ? 'Copied to Clipboard!' : 'Copy JSON'}
+              </button>
+            </div>
+            
+            <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-colors">
+              <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-slate-500" />
+                <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">
+                  Add to: ~/Library/Application Support/Claude/claude_desktop_config.json
+                </span>
+              </div>
+              <pre className="p-4 sm:p-6 text-sm font-mono text-[#141B41] dark:text-blue-100 overflow-x-auto whitespace-pre-wrap">
+                {JSON.stringify(claudeConfig, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Deploy() {
   const navigate = useNavigate();
-  // We added 'endpoints' and 'credentials' to this list!
-  const { selectedEndpoints, endpoints, credentials, deploymentInfo, setDeploymentInfo, setLogs } = useApp();
+  
+  // Safe context extraction
+  let context: any = null;
+  try { context = useApp(); } catch(e) {}
+  
+  if (!context) {
+    return <div className="p-20 text-center text-slate-500">Initializing workspace...</div>;
+  }
+
+  const { selectedEndpoints, endpoints, credentials, deploymentInfo, setDeploymentInfo, setLogs } = context;
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
 
@@ -19,13 +166,13 @@ export default function Deploy() {
       // 1. Prepare the data to send to the backend
       const apiKeyToUse = credentials.length > 0 ? credentials[0].key : 'no-key-provided';
       
-      const selectedEndpointDetails = endpoints.filter(ep => 
+      const selectedEndpointDetails = endpoints.filter((ep: any) => 
         selectedEndpoints.has(`${ep.method}:${ep.path}`)
       );
 
       // 2. Make the REAL network request to your Render backend
       // ⚠️ REPLACE THIS URL with your actual Render URL!
-      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
+      const response = await fetch('https://YOUR-RENDER-APP-NAME.onrender.com/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,17 +218,9 @@ export default function Deploy() {
     return (
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+          <div className="bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-900/50 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-yellow-800">No endpoints selected. Please go back and select endpoints.</p>
-              <button
-                onClick={() => navigate('/prune')}
-                className="mt-2 text-sm text-yellow-700 underline"
-              >
-                Go to Prune Endpoints
-              </button>
-            </div>
+            <p className="text-yellow-800 dark:text-yellow-200">You must select at least one endpoint in the Prune step to deploy your MCP server.</p>
           </div>
         </div>
       </div>
@@ -89,37 +228,19 @@ export default function Deploy() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 animate-in fade-in duration-500">
       <div className="max-w-6xl mx-auto">
         {deployError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <div className="mb-6 bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-900/50 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-red-800">Deployment failed: {deployError}</p>
+            <p className="text-red-800 dark:text-red-200">Deployment failed: {deployError}</p>
           </div>
         )}
         
         {!deploymentInfo ? (
-          <>
-            <DeploymentPanel
-              selectedCount={selectedEndpoints.size}
-              onDeploy={handleDeploy}
-              isDeploying={isDeploying}
-            />
-            <div className="mt-6 flex justify-start">
-              <button
-                onClick={() => navigate('/auth')}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-              >
-                Back
-              </button>
-            </div>
-          </>
+          <DeploymentPanel onDeploy={handleDeploy} isDeploying={isDeploying} />
         ) : (
-          <DeploymentSuccess
-            serverUrl={deploymentInfo.serverUrl}
-            apiKey={deploymentInfo.apiKey}
-            selectedCount={selectedEndpoints.size}
-          />
+          <DeploymentSuccess />
         )}
       </div>
     </div>
