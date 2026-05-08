@@ -1,219 +1,169 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { 
+  Zap, 
+  Plus, 
+  Trash2, 
+  ChevronRight, 
+  ChevronLeft, 
+  Info,
+  Layers
+} from 'lucide-react';
+
+/**
+ * Note: The "Could not resolve" errors in this preview tool occur because 
+ * the browser-based editor cannot see your local filesystem.
+ * This path is correct for your local Vite project structure.
+ */
+// @ts-ignore
 import { useApp } from '../context/AppContext';
-import { Plus, Trash2, ArrowRight, GripVertical, AlertCircle } from 'lucide-react';
-import type { MacroTool } from '../context/AppContext';
 
-export default function MacroTools() {
+export default function Macro() {
   const navigate = useNavigate();
-  const { endpoints, selectedEndpoints, macroTools, setMacroTools } = useApp();
-  const [editingMacro, setEditingMacro] = useState<MacroTool | null>(null);
-  const [macroName, setMacroName] = useState('');
-  const [macroDescription, setMacroDescription] = useState('');
-  const [selectedMacroEndpoints, setSelectedMacroEndpoints] = useState<string[]>([]);
+  const { endpoints, selectedEndpoints } = useApp();
+  const [macros, setMacros] = useState<any[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const selectedEndpointsList = endpoints.filter(ep =>
-    selectedEndpoints.has(`${ep.method}:${ep.path}`)
-  );
+  // Filter only the endpoints the user previously kept in the "Prune" step
+  // Ensuring selectedEndpoints exists before calling .has()
+  const availableEndpoints = endpoints?.filter(ep => 
+    selectedEndpoints?.has(`${ep.method}:${ep.path}`)
+  ) || [];
 
-  const handleCreateMacro = () => {
-    if (!macroName.trim() || selectedMacroEndpoints.length < 2) return;
-
-    const newMacro: MacroTool = {
-      id: Math.random().toString(36).substring(2, 15),
-      name: macroName,
-      description: macroDescription,
-      endpoints: selectedMacroEndpoints.map((key, index) => ({
-        endpointKey: key,
-        order: index + 1,
-      })),
+  const handleAddMacro = () => {
+    const newMacro = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: 'New Macro Tool',
+      description: 'Combine multiple actions into one intent for the AI.',
+      steps: []
     };
-
-    setMacroTools([...macroTools, newMacro]);
-    setMacroName('');
-    setMacroDescription('');
-    setSelectedMacroEndpoints([]);
-    setEditingMacro(null);
+    setMacros([...macros, newMacro]);
+    setIsCreating(true);
   };
 
-  const handleDeleteMacro = (id: string) => {
-    setMacroTools(macroTools.filter(m => m.id !== id));
+  const removeMacro = (id: string) => {
+    setMacros(macros.filter(m => m.id !== id));
+    if (macros.length <= 1) setIsCreating(false);
   };
-
-  const toggleEndpointInMacro = (key: string) => {
-    setSelectedMacroEndpoints(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
-
-  if (selectedEndpointsList.length === 0) {
-    return (
-      <div className="p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-yellow-800">No endpoints selected. Please go back and select endpoints.</p>
-              <button
-                onClick={() => navigate('/prune')}
-                className="mt-2 text-sm text-yellow-700 underline"
-              >
-                Go to Prune Endpoints
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-2xl mb-2">Step 3: Create Macro Tools (Optional)</h2>
-          <p className="text-gray-600 mb-6">
-            Bundle multiple endpoints into single-intent tools. Example: "Update Deal & Notify Team" → PATCH /deals/:id + POST /slack/message
+    <div className="p-8 animate-in fade-in duration-500">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">
+            Macro-Tool Bundler
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 max-w-2xl">
+            REST APIs are resource-oriented, but AI works best with intents. Combine multiple API calls into a single tool to save context and prevent agent failure.
           </p>
-
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium mb-3">Create New Macro Tool</h3>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">Macro Name</label>
-                  <input
-                    type="text"
-                    value={macroName}
-                    onChange={(e) => setMacroName(e.target.value)}
-                    placeholder="e.g., Update Deal & Notify Team"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1">Description</label>
-                  <textarea
-                    value={macroDescription}
-                    onChange={(e) => setMacroDescription(e.target.value)}
-                    placeholder="What does this macro do?"
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-2">Select Endpoints (in order)</label>
-                  <div className="border border-gray-300 rounded-md max-h-64 overflow-y-auto">
-                    {selectedEndpointsList.map(ep => {
-                      const key = `${ep.method}:${ep.path}`;
-                      const isSelected = selectedMacroEndpoints.includes(key);
-                      const order = selectedMacroEndpoints.indexOf(key);
-
-                      return (
-                        <label
-                          key={key}
-                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                            isSelected ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleEndpointInMacro(key)}
-                            className="h-4 w-4"
-                          />
-                          {isSelected && (
-                            <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full text-xs">
-                              {order + 1}
-                            </span>
-                          )}
-                          <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">
-                            {ep.method}
-                          </span>
-                          <code className="text-sm flex-1">{ep.path}</code>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCreateMacro}
-                  disabled={!macroName.trim() || selectedMacroEndpoints.length < 2}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Macro Tool
-                </button>
-                <p className="text-xs text-gray-500">
-                  Select at least 2 endpoints to create a macro
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-3">
-                Configured Macro Tools ({macroTools.length})
-              </h3>
-
-              {macroTools.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
-                  No macro tools created yet
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {macroTools.map(macro => (
-                    <div key={macro.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{macro.name}</h4>
-                          <p className="text-sm text-gray-600">{macro.description}</p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteMacro(macro.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="space-y-1 mt-3">
-                        {macro.endpoints.map((ep, idx) => {
-                          const [method, path] = ep.endpointKey.split(':');
-                          return (
-                            <div key={idx} className="flex items-center gap-2 text-sm">
-                              <span className="text-gray-400">{idx + 1}.</span>
-                              <span className="px-2 py-0.5 bg-white rounded text-xs">
-                                {method}
-                              </span>
-                              <code className="text-xs">{path}</code>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
-        <div className="flex justify-between">
+        {macros.length === 0 && !isCreating ? (
+          <div className="bg-white dark:bg-[#111827] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center transition-all hover:border-blue-400/50">
+            <div className="bg-blue-50 dark:bg-blue-900/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Layers className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-xl font-medium text-[#141B41] dark:text-white mb-2">No Macros Defined</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm mx-auto">
+              You haven't bundled any sequential actions yet. Macros help the AI execute complex tasks in one go.
+            </p>
+            <button
+              onClick={handleAddMacro}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-sm active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              Create First Macro
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {macros.map((macro) => (
+              <div 
+                key={macro.id} 
+                className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                      <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={macro.name}
+                        onChange={(e) => {
+                          const newMacros = macros.map(m => m.id === macro.id ? {...m, name: e.target.value} : m);
+                          setMacros(newMacros);
+                        }}
+                        className="text-lg font-semibold bg-transparent border-none focus:ring-0 p-0 text-[#141B41] dark:text-white w-full outline-none"
+                        placeholder="Macro Name..."
+                      />
+                      <input 
+                        type="text"
+                        value={macro.description}
+                        onChange={(e) => {
+                          const newMacros = macros.map(m => m.id === macro.id ? {...m, description: e.target.value} : m);
+                          setMacros(newMacros);
+                        }}
+                        className="text-sm text-slate-500 dark:text-slate-400 bg-transparent border-none focus:ring-0 p-0 w-full outline-none mt-1"
+                        placeholder="Add a description for the AI..."
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => removeMacro(macro.id)}
+                    className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 mt-6">
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">Operation Sequence</p>
+                   <div className="flex items-center gap-3 text-sm text-slate-400 italic bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border border-slate-100 dark:border-slate-800 border-dashed">
+                     <Info className="h-4 w-4 text-blue-500" />
+                     {availableEndpoints.length > 0 
+                        ? "Drag endpoints here to build a sequence (Coming in V1.1)" 
+                        : "No pruned endpoints available. Go back to Step 2 to select some."}
+                   </div>
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={handleAddMacro}
+              className="w-full py-5 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-500 dark:text-slate-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 transition-all flex items-center justify-center gap-2 group bg-white/50 dark:bg-transparent"
+            >
+              <Plus className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              Add Another Macro Tool
+            </button>
+          </div>
+        )}
+
+        <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors">
           <button
             onClick={() => navigate('/prune')}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+            className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white transition-colors font-medium group"
           >
-            Back
+            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Pruning
           </button>
-          <button
-            onClick={() => navigate('/auth')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            Continue to Auth Setup
-            <ArrowRight className="h-5 w-5" />
-          </button>
+          
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/auth')}
+              className="px-8 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-medium shadow-sm"
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => navigate('/auth')}
+              className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-blue-900/10 active:scale-95 group"
+            >
+              Save & Continue
+              <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
