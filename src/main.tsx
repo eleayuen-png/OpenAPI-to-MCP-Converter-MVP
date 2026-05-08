@@ -1,11 +1,11 @@
 import { Buffer } from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 
 /**
  * 1. THE POLYFILL (Must be at the absolute top)
- * This allows browser-based libraries like @apidevtools/swagger-parser to function.
+ * Required for browser-based libraries like @apidevtools/swagger-parser.
  */
 declare global {
   interface Window {
@@ -19,11 +19,9 @@ if (typeof window !== 'undefined') {
 
 /**
  * 2. IMPORTS
- * We import the layout (Root) and all individual step pages.
- * * NOTE FOR PREVIEW TOOL: The "Could not resolve" errors appearing in this 
- * specific preview window are expected because the online editor cannot 
- * access your local filesystem where Root.tsx, theme.css, etc. reside. 
- * These paths are correct for your local Vite project structure.
+ * NOTE: The "Could not resolve" errors appearing in this preview window 
+ * are expected because this online environment cannot see your local 
+ * folder structure. These paths are correct for your local Vite project.
  */
 // @ts-ignore
 import Root from './app/pages/Root';
@@ -44,8 +42,7 @@ import './styles/theme.css';
 
 /**
  * 3. RENDERING & ROUTING
- * We wrap the app in BrowserRouter and define the nested routes.
- * The <Outlet /> inside Root.tsx will render these child components.
+ * Using absolute paths for child routes to ensure reliable matching across all steps.
  */
 const container = document.getElementById('root');
 
@@ -56,12 +53,20 @@ if (container) {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Root />}>
+            {/* Landing/Step 1 */}
             <Route index element={<Upload />} />
-            <Route path="prune" element={<Prune />} />
-            <Route path="macro-tools" element={<MacroTools />} />
-            <Route path="auth" element={<Auth />} />
-            <Route path="deploy" element={<Deploy />} />
-            <Route path="logs" element={<Logs />} />
+            
+            {/* Wizard Steps */}
+            <Route path="/prune" element={<Prune />} />
+            <Route path="/macro-tools" element={<MacroTools />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/deploy" element={<Deploy />} />
+            
+            {/* Utilities */}
+            <Route path="/logs" element={<Logs />} />
+
+            {/* Safety Catch-all: Redirects any unknown route back to Upload */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>
