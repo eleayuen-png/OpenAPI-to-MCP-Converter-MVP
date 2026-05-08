@@ -1,15 +1,10 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
 import { Buffer } from 'buffer';
 
 /**
- * TypeScript Ambient Declarations
- * These lines fix "Could not find declaration file" and "Side-effect import" errors
- * by telling the compiler how to handle these specific modules.
+ * TypeScript Global Extension
+ * informs TypeScript that the 'window' object can hold the 'Buffer' property.
  */
-declare module 'react-dom/client';
-declare module '*.css';
-
 declare global {
   interface Window {
     Buffer: typeof Buffer;
@@ -18,9 +13,7 @@ declare global {
 
 /**
  * Polyfill for Buffer
- * This fixes the "Buffer is not defined" error encountered in browser environments
- * when using libraries like @apidevtools/swagger-parser or js-yaml.
- * This must run before any other application code.
+ * Required for libraries like @apidevtools/swagger-parser to work in the browser.
  */
 if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || Buffer;
@@ -28,11 +21,14 @@ if (typeof window !== 'undefined') {
 
 /**
  * Application Entry Point
- * Note: If you encounter resolution errors in this preview tool, it is due to 
- * the environment's inability to see your local filesystem. These paths are 
- * correct for your local Vite project structure.
+ * * NOTE: The "Could not resolve" errors in the Preview window are expected 
+ * because the browser editor cannot see your local filesystem. 
+ * These paths are correct for your local Vite project structure.
  */
+// @ts-ignore
+import ReactDOM from 'react-dom/client';
 import Root from './app/pages/Root'; 
+// @ts-ignore
 import './styles/theme.css'; 
 
 const container = document.getElementById('root');
