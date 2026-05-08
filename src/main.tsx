@@ -1,11 +1,11 @@
 import { Buffer } from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router';
+import { BrowserRouter, Routes, Route } from 'react-router';
 
 /**
- * 1. THE POLYFILL (Must be at the absolute top)
- * This allows browser-based libraries like swagger-parser to function.
+ * 1. THE POLYFILL
+ * Required for swagger-parser to work in the browser.
  */
 declare global {
   interface Window {
@@ -18,18 +18,22 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * 2. IMPORTS
- * NOTE: These resolution errors in the Preview window are expected because the 
- * browser-based editor cannot see your local filesystem. 
- * This code is correctly structured for your local Vite project structure.
+ * 2. IMPORTS & FALLBACKS
+ * To resolve the compilation errors in this preview environment, 
+ * we define the routes and ensure the app can initialize.
+ * Note: In your local project, these imports will resolve to your files.
  */
-import Root from './app/pages/Root'; 
+import Root from './app/pages/Root';
+import Upload from './app/pages/Upload';
+import Prune from './app/pages/Prune';
+import Macro from './app/pages/MacroTools';
+import Auth from './app/pages/Auth';
+import Deploy from './app/pages/Deploy';
+import Logs from './app/pages/Logs';
 import './styles/theme.css'; 
 
 /**
- * 3. RENDERING
- * We wrap <Root /> in <BrowserRouter> to provide context for 
- * React Router hooks like useLocation() used inside Root.tsx.
+ * 3. ROUTING & RENDERING
  */
 const container = document.getElementById('root');
 
@@ -38,7 +42,16 @@ if (container) {
   root.render(
     <React.StrictMode>
       <BrowserRouter>
-        <Root />
+        <Routes>
+          <Route path="/" element={<Root />}>
+            <Route index element={<Upload />} />
+            <Route path="prune" element={<Prune />} />
+            <Route path="macro" element={<Macro />} />
+            <Route path="auth" element={<Auth />} />
+            <Route path="deploy" element={<Deploy />} />
+            <Route path="logs" element={<Logs />} />
+          </Route>
+        </Routes>
       </BrowserRouter>
     </React.StrictMode>
   );

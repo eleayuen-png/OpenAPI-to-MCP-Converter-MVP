@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* Tailwind v4 is "CSS-variable-first". 
-  By using the --color- prefix on variables inside :root and .dark, 
-  Tailwind automatically creates utility classes (like bg-primary) 
-  using standard CSS syntax that doesn't trigger editor errors.
+/* Tailwind v4 Clean Theme Configuration
+   This uses standard CSS variables that map automatically to utility classes.
 */
 
 :root {
@@ -27,15 +25,10 @@
   --color-input: #e2e8f0;
   --color-ring: #141B41;
   
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  /* Font settings */
-  --font-size: 16px;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
 }
 
 .dark {
