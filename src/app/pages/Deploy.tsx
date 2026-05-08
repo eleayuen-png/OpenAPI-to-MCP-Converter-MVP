@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 // @ts-ignore
 import { useApp } from '../context/AppContext';
-import { AlertCircle, Server, CheckCircle2, Copy, Download, Terminal, Check } from 'lucide-react';
+import { AlertCircle, Server, CheckCircle2, Copy, Download, Terminal, Check, Code, Pointer } from 'lucide-react';
 
 export function DeploymentPanel({ onDeploy, isDeploying }: { onDeploy: () => void, isDeploying: boolean }) {
   // Safe context extraction for environments
@@ -38,11 +38,13 @@ export function DeploymentSuccess() {
   const selectedEndpoints = context?.selectedEndpoints || new Set();
 
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'claude' | 'cline' | 'cursor'>('claude');
   
   if (!deploymentInfo) return null;
 
   const serverUrl = deploymentInfo.serverUrl || 'http://localhost:3000/sse/example-id';
+  const apiKey = deploymentInfo.apiKey || "no-key-provided";
   
   const copyToClipboard = (text: string, setter: (val: boolean) => void) => {
     navigator.clipboard.writeText(text);
@@ -50,7 +52,7 @@ export function DeploymentSuccess() {
     setTimeout(() => setter(false), 2000);
   };
 
-  const claudeConfig = {
+  const jsonConfig = {
     mcpServers: {
       "my-api": {
         command: "npx",
@@ -60,11 +62,13 @@ export function DeploymentSuccess() {
           serverUrl
         ],
         env: {
-          MCP_API_KEY: deploymentInfo.apiKey || "no-key-provided"
+          MCP_API_KEY: apiKey
         }
       }
     }
   };
+
+  const cursorCommand = `MCP_API_KEY="${apiKey}" npx -y @modelcontextprotocol/server-sse ${serverUrl}`;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -105,38 +109,138 @@ export function DeploymentSuccess() {
       {/* Configuration Snippets */}
       <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 transition-colors shadow-sm">
         <h3 className="text-2xl font-semibold text-[#141B41] dark:text-white mb-2">Client Configuration Snippets</h3>
-        <p className="text-slate-600 dark:text-slate-400 mb-8">Choose your AI client and copy the configuration:</p>
+        <p className="text-slate-600 dark:text-slate-400 mb-6">Choose your AI client and copy the configuration:</p>
 
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <button
+            onClick={() => setActiveTab('claude')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'claude' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Terminal className="w-4 h-4" /> Claude Desktop
+          </button>
+          <button
+            onClick={() => setActiveTab('cursor')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'cursor' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Pointer className="w-4 h-4" /> Cursor IDE
+          </button>
+          <button
+            onClick={() => setActiveTab('cline')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'cline' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Code className="w-4 h-4" /> Cline (VS Code)
+          </button>
+        </div>
+
+        {/* Content Area */}
         <div className="space-y-6">
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h4 className="text-lg font-medium text-[#141B41] dark:text-white flex items-center gap-3">
-                Claude Desktop
-                <a href="https://claude.ai/download" target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 font-normal bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md transition-colors">
-                  <Download className="h-3 w-3" /> Download
-                </a>
-              </h4>
-              <button 
-                onClick={() => copyToClipboard(JSON.stringify(claudeConfig, null, 2), setCopiedJson)}
-                className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
-              >
-                {copiedJson ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
-                {copiedJson ? 'Copied to Clipboard!' : 'Copy JSON'}
-              </button>
-            </div>
-            
-            <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-colors">
-              <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-slate-500" />
-                <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">
-                  Add to: ~/Library/Application Support/Claude/claude_desktop_config.json
-                </span>
+          
+          {/* CLAUDE DESKTOP TAB */}
+          {activeTab === 'claude' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h4 className="text-lg font-medium text-[#141B41] dark:text-white flex items-center gap-3">
+                  Claude Desktop Configuration
+                  <a href="https://claude.ai/download" target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 font-normal bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md transition-colors">
+                    <Download className="h-3 w-3" /> Get App
+                  </a>
+                </h4>
+                <button 
+                  onClick={() => copyToClipboard(JSON.stringify(jsonConfig, null, 2), setCopiedSnippet)}
+                  className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                  {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                  {copiedSnippet ? 'Copied to Clipboard!' : 'Copy JSON'}
+                </button>
               </div>
-              <pre className="p-4 sm:p-6 text-sm font-mono text-[#141B41] dark:text-blue-100 overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(claudeConfig, null, 2)}
-              </pre>
+              
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-colors">
+                <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 overflow-x-auto">
+                  <Terminal className="h-4 w-4 text-slate-500 shrink-0" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
+                    Add to: ~/Library/Application Support/Claude/claude_desktop_config.json
+                  </span>
+                </div>
+                <pre className="p-4 sm:p-6 text-sm font-mono text-[#141B41] dark:text-blue-100 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(jsonConfig, null, 2)}
+                </pre>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* CURSOR IDE TAB */}
+          {activeTab === 'cursor' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h4 className="text-lg font-medium text-[#141B41] dark:text-white flex items-center gap-3">
+                  Cursor Configuration
+                  <a href="https://cursor.com/" target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 font-normal bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md transition-colors">
+                    <Download className="h-3 w-3" /> Get App
+                  </a>
+                </h4>
+                <button 
+                  onClick={() => copyToClipboard(cursorCommand, setCopiedSnippet)}
+                  className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                  {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                  {copiedSnippet ? 'Copied to Clipboard!' : 'Copy Command'}
+                </button>
+              </div>
+
+              <ol className="list-decimal list-inside text-sm text-[#141B41]/80 dark:text-slate-300 mb-4 space-y-1.5 ml-1">
+                <li>Open Cursor Settings <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs border border-slate-200 dark:border-slate-700">⌘ + Shift + J</code></li>
+                <li>Go to <strong>Features</strong> &gt; <strong>MCP</strong></li>
+                <li>Click <strong>+ Add New MCP Server</strong></li>
+                <li>Set Type to <strong>command</strong> and Name to <strong>my-api</strong></li>
+                <li>Paste the command below:</li>
+              </ol>
+              
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-colors">
+                <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-slate-500 shrink-0" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">CLI Command</span>
+                </div>
+                <pre className="p-4 sm:p-6 text-sm font-mono text-[#141B41] dark:text-blue-100 overflow-x-auto whitespace-pre-wrap break-all">
+                  {cursorCommand}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* CLINE (VS CODE) TAB */}
+          {activeTab === 'cline' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h4 className="text-lg font-medium text-[#141B41] dark:text-white flex items-center gap-3">
+                  Cline Configuration
+                  <a href="https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev" target="_blank" rel="noreferrer" className="text-sm text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 font-normal bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1 rounded-md transition-colors">
+                    <Download className="h-3 w-3" /> VS Code Extension
+                  </a>
+                </h4>
+                <button 
+                  onClick={() => copyToClipboard(JSON.stringify(jsonConfig, null, 2), setCopiedSnippet)}
+                  className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                  {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                  {copiedSnippet ? 'Copied to Clipboard!' : 'Copy JSON'}
+                </button>
+              </div>
+              
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-colors">
+                <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2 overflow-x-auto">
+                  <Terminal className="h-4 w-4 text-slate-500 shrink-0" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-mono whitespace-nowrap">
+                    Add to: ~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json
+                  </span>
+                </div>
+                <pre className="p-4 sm:p-6 text-sm font-mono text-[#141B41] dark:text-blue-100 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(jsonConfig, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
