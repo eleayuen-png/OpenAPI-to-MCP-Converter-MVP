@@ -1,19 +1,36 @@
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
+import { Activity, Moon, Sun, Sparkles } from 'lucide-react';
+
+/**
+ * These imports reference other files in your local project.
+ * Note: The "Could not resolve" errors in this preview tool occur because 
+ * the browser-based editor cannot see your local filesystem.
+ */
 import { WizardNav } from '../components/WizardNav';
 import { AppProvider } from '../context/AppContext';
-import { Activity, Moon, Sun, Sparkles } from 'lucide-react';
-import { useState, useEffect } from 'react';
 
 export default function Root() {
   const location = useLocation();
   const isLogsPage = location.pathname === '/logs';
   const [isDark, setIsDark] = useState(false);
 
+  // Initialize theme from system preference or previous state
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      setIsDark(true);
+    }
+  }, []);
+
+  // Update document class when dark mode changes
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
 
@@ -55,6 +72,7 @@ export default function Root() {
           </div>
         </header>
 
+        {/* The Wizard navigation only shows on the main tool path, not the logs page */}
         {!isLogsPage && <WizardNav />}
 
         <main className="flex-1">
