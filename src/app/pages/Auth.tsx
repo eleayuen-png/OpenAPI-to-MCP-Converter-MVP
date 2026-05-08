@@ -1,199 +1,164 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useApp } from '../context/AppContext';
-import { Plus, Trash2, ArrowRight, Eye, EyeOff, Lock, Key } from 'lucide-react';
-import type { ApiCredential } from '../context/AppContext';
+import { Lock, Plus, Trash2, ChevronRight, ChevronLeft, ShieldCheck } from 'lucide-react';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { credentials, setCredentials } = useApp();
-  const [credName, setCredName] = useState('');
-  const [credType, setCredType] = useState<'bearer' | 'api-key' | 'basic'>('bearer');
-  const [credKey, setCredKey] = useState('');
-  const [showKeys, setShowKeys] = useState<Set<string>>(new Set());
+  const [credentials, setCredentials] = useState<any[]>([]);
+  
+  const [name, setName] = useState('');
+  const [type, setType] = useState('Bearer Token');
+  const [token, setToken] = useState('');
 
-  const handleAddCredential = () => {
-    if (!credName.trim() || !credKey.trim()) return;
-
-    const newCred: ApiCredential = {
-      id: Math.random().toString(36).substring(2, 15),
-      name: credName,
-      type: credType,
-      key: credKey,
-      createdAt: new Date(),
-    };
-
-    setCredentials([...credentials, newCred]);
-    setCredName('');
-    setCredKey('');
+  const handleAdd = () => {
+    if (!name || !token) return;
+    setCredentials([...credentials, { id: Math.random().toString(), name, type, key: token }]);
+    setName('');
+    setToken('');
   };
 
-  const handleDeleteCredential = (id: string) => {
-    setCredentials(credentials.filter(c => c.id !== id));
-  };
-
-  const toggleKeyVisibility = (id: string) => {
-    setShowKeys(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const maskKey = (key: string) => {
-    if (key.length <= 8) return '****';
-    return key.substring(0, 4) + '*'.repeat(key.length - 8) + key.substring(key.length - 4);
+  const handleRemove = (id: string) => {
+    setCredentials(credentials.filter((c: any) => c.id !== id));
   };
 
   return (
-    <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-2xl mb-2">Step 4: API Authentication (Optional)</h2>
-          <p className="text-gray-600 mb-6">
+    <div className="p-8 animate-in fade-in duration-500">
+      <div className="max-w-5xl mx-auto bg-white dark:bg-[#111827] rounded-2xl p-8 sm:p-10 shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+        
+        <div className="mb-10">
+          <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-3 tracking-tight">
+            Step 4: API Authentication (Optional)
+          </h1>
+          <p className="text-[#141B41]/70 dark:text-slate-400 text-lg">
             Securely store API keys and tokens. Your credentials are stored in our secure vault and never exposed to the LLM or local machine.
           </p>
+        </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium mb-3">Add API Credential</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          
+          {/* Left Column: Add Credential */}
+          <div>
+            <h2 className="text-xl font-medium text-[#141B41] dark:text-white mb-6">Add API Credential</h2>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">
+                  Credential Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g., Stripe API Key"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white placeholder:text-slate-400 transition-colors"
+                />
+              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-1">Credential Name</label>
-                  <input
-                    type="text"
-                    value={credName}
-                    onChange={(e) => setCredName(e.target.value)}
-                    placeholder="e.g., Stripe API Key"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1">Authentication Type</label>
-                  <select
-                    value={credType}
-                    onChange={(e) => setCredType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="bearer">Bearer Token</option>
-                    <option value="api-key">API Key</option>
-                    <option value="basic">Basic Auth</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm mb-1">
-                    {credType === 'bearer' ? 'Token' : credType === 'api-key' ? 'API Key' : 'Username:Password'}
-                  </label>
-                  <input
-                    type="password"
-                    value={credKey}
-                    onChange={(e) => setCredKey(e.target.value)}
-                    placeholder={credType === 'basic' ? 'username:password' : 'Paste your key here'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <button
-                  onClick={handleAddCredential}
-                  disabled={!credName.trim() || !credKey.trim()}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              <div>
+                <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">
+                  Authentication Type
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
                 >
-                  <Plus className="h-4 w-4" />
-                  Add Credential
-                </button>
+                  <option>Bearer Token</option>
+                  <option>API Key (Header)</option>
+                  <option>Basic Auth</option>
+                </select>
               </div>
 
-              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <Lock className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Zero-Touch Security</p>
-                    <p>Your API keys are encrypted and stored securely. The MCP server acts as a proxy, injecting credentials at runtime without exposing them to the LLM.</p>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">
+                  Token
+                </label>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Paste your key here"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white placeholder:text-slate-400 transition-colors"
+                />
+              </div>
+
+              <button
+                onClick={handleAdd}
+                disabled={!name || !token}
+                className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-5 w-5" />
+                Add Credential
+              </button>
+
+              <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-xl p-5 flex items-start gap-3 transition-colors">
+                <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-[#141B41] dark:text-blue-300 mb-1">Zero-Touch Security</h4>
+                  <p className="text-sm text-[#141B41]/70 dark:text-blue-400/80 leading-relaxed">
+                    Your API keys are encrypted and stored securely. The MCP server acts as a proxy, injecting credentials at runtime without exposing them to the LLM.
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-3">
-                Stored Credentials ({credentials.length})
-              </h3>
-
-              {credentials.length === 0 ? (
-                <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
-                  No credentials stored yet
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {credentials.map(cred => (
-                    <div key={cred.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Key className="h-4 w-4 text-gray-500" />
-                            <h4 className="font-medium">{cred.name}</h4>
-                          </div>
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">
-                            {cred.type.replace('-', ' ')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => toggleKeyVisibility(cred.id)}
-                            className="text-gray-500 hover:text-gray-700 p-1"
-                          >
-                            {showKeys.has(cred.id) ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCredential(cred.id)}
-                            className="text-red-500 hover:text-red-700 p-1"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded px-3 py-2 border border-gray-200">
-                        <code className="text-xs break-all">
-                          {showKeys.has(cred.id) ? cred.key : maskKey(cred.key)}
-                        </code>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">
-                        Added {cred.createdAt.toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Right Column: Stored Credentials */}
+          <div>
+            <h2 className="text-xl font-medium text-[#141B41] dark:text-white mb-6">
+              Stored Credentials ({credentials.length})
+            </h2>
+            
+            {credentials.length === 0 ? (
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-10 flex items-center justify-center text-center h-[340px] transition-colors">
+                <p className="text-[#141B41]/50 dark:text-slate-400 font-medium">No credentials stored yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {credentials.map((cred: any) => (
+                  <div key={cred.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex items-center justify-between group transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
+                        <Lock className="h-4 w-4 text-[#141B41]/60 dark:text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#141B41] dark:text-white">{cred.name}</p>
+                        <p className="text-xs text-[#141B41]/60 dark:text-slate-400">{cred.type}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemove(cred.id)}
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
-        <div className="flex justify-between">
+        {/* Footer Navigation */}
+        <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors">
           <button
             onClick={() => navigate('/macro-tools')}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+            className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white transition-colors font-medium group"
           >
-            Back
+            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Macros
           </button>
+          
           <button
             onClick={() => navigate('/deploy')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-blue-900/10 active:scale-95 group"
           >
             Continue to Deploy
-            <ArrowRight className="h-5 w-5" />
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
+        
       </div>
     </div>
   );
