@@ -172,7 +172,7 @@ export default function Deploy() {
 
       // 2. Make the REAL network request to your Render backend
       // ⚠️ REPLACE THIS URL with your actual Render URL!
-      const response = await fetch('https://YOUR-RENDER-APP-NAME.onrender.com/api/deploy', {
+      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
