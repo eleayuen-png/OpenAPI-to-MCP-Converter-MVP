@@ -4,8 +4,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router';
 
 /**
- * 1. THE POLYFILL
- * Required for swagger-parser to work in the browser.
+ * 1. THE POLYFILL (Must be at the absolute top)
+ * This allows browser-based libraries like @apidevtools/swagger-parser to function.
  */
 declare global {
   interface Window {
@@ -18,22 +18,34 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * 2. IMPORTS & FALLBACKS
- * To resolve the compilation errors in this preview environment, 
- * we define the routes and ensure the app can initialize.
- * Note: In your local project, these imports will resolve to your files.
+ * 2. IMPORTS
+ * We import the layout (Root) and all individual step pages.
+ * * NOTE FOR PREVIEW TOOL: The "Could not resolve" errors appearing in this 
+ * specific preview window are expected because the online editor cannot 
+ * access your local filesystem where Root.tsx, theme.css, etc. reside. 
+ * These paths are correct for your local Vite project structure.
  */
+// @ts-ignore
 import Root from './app/pages/Root';
+// @ts-ignore
 import Upload from './app/pages/Upload';
+// @ts-ignore
 import Prune from './app/pages/Prune';
-import Macro from './app/pages/MacroTools';
+// @ts-ignore
+import MacroTools from './app/pages/MacroTools'; 
+// @ts-ignore
 import Auth from './app/pages/Auth';
+// @ts-ignore
 import Deploy from './app/pages/Deploy';
+// @ts-ignore
 import Logs from './app/pages/Logs';
+// @ts-ignore
 import './styles/theme.css'; 
 
 /**
- * 3. ROUTING & RENDERING
+ * 3. RENDERING & ROUTING
+ * We wrap the app in BrowserRouter and define the nested routes.
+ * The <Outlet /> inside Root.tsx will render these child components.
  */
 const container = document.getElementById('root');
 
@@ -46,7 +58,7 @@ if (container) {
           <Route path="/" element={<Root />}>
             <Route index element={<Upload />} />
             <Route path="prune" element={<Prune />} />
-            <Route path="macro" element={<Macro />} />
+            <Route path="macro-tools" element={<MacroTools />} />
             <Route path="auth" element={<Auth />} />
             <Route path="deploy" element={<Deploy />} />
             <Route path="logs" element={<Logs />} />

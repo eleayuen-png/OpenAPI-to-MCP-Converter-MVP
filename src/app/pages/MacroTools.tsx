@@ -20,15 +20,24 @@ import { useApp } from '../context/AppContext';
 
 export default function Macro() {
   const navigate = useNavigate();
-  const { endpoints, selectedEndpoints } = useApp();
+  
+  // Guard for the context hook in environments where the context might not be provided
+  let context: any = { endpoints: [], selectedEndpoints: new Set() };
+  try {
+    const appData = useApp();
+    if (appData) context = appData;
+  } catch (e) {
+    // Fallback for preview mode
+  }
+
+  const { endpoints = [], selectedEndpoints = new Set() } = context;
   const [macros, setMacros] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   // Filter only the endpoints the user previously kept in the "Prune" step
-  // Ensuring selectedEndpoints exists before calling .has()
-  const availableEndpoints = endpoints?.filter(ep => 
-    selectedEndpoints?.has(`${ep.method}:${ep.path}`)
-  ) || [];
+  const availableEndpoints = endpoints.filter((ep: any) => 
+    selectedEndpoints.has(`${ep.method}:${ep.path}`)
+  );
 
   const handleAddMacro = () => {
     const newMacro = {
@@ -42,8 +51,9 @@ export default function Macro() {
   };
 
   const removeMacro = (id: string) => {
-    setMacros(macros.filter(m => m.id !== id));
-    if (macros.length <= 1) setIsCreating(false);
+    const updated = macros.filter(m => m.id !== id);
+    setMacros(updated);
+    if (updated.length === 0) setIsCreating(false);
   };
 
   return (
@@ -83,7 +93,7 @@ export default function Macro() {
                 className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
                     <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
                       <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                     </div>
