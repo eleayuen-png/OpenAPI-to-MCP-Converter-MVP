@@ -156,23 +156,23 @@ export default function Deploy() {
 
   const { selectedEndpoints, endpoints, credentials, deploymentInfo, setDeploymentInfo, setLogs } = context;
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deployError, setDeployError] = useState<string | null>(null);
+  const [deployError, setDeployError] = useState<React.ReactNode | null>(null);
 
   const handleDeploy = async () => {
     setIsDeploying(true);
     setDeployError(null);
 
     try {
-      // 1. Prepare the data to send to the backend
       const apiKeyToUse = credentials.length > 0 ? credentials[0].key : 'no-key-provided';
       
       const selectedEndpointDetails = endpoints.filter((ep: any) => 
         selectedEndpoints.has(`${ep.method}:${ep.path}`)
       );
 
-      // 2. Make the REAL network request to your Render backend
-      // ⚠️ REPLACE THIS URL with your actual Render URL!
-      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
+      // ⚠️ Make sure this URL is EXACTLY what Render gave you in your dashboard!
+      const targetUrl = 'https://mcp-proxy-backend.onrender.com/api/deploy';
+      
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,12 +185,12 @@ export default function Deploy() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to deploy server to backend');
+        const errorText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
 
-      // 3. Set the real deployment info returned from your server
       setDeploymentInfo({
         serverUrl: data.sseUrl,
         apiKey: apiKeyToUse, 
@@ -208,7 +208,22 @@ export default function Deploy() {
       ]);
 
     } catch (error: any) {
-      setDeployError(error.message);
+      // Smart Error Handling for "Failed to fetch"
+      if (error.message.includes('Failed to fetch')) {
+        setDeployError(
+          <div className="flex flex-col gap-2">
+            <strong className="text-lg">Network Connection Refused!</strong>
+            <p>Your browser could not reach the server at all. Try these steps:</p>
+            <ol className="list-decimal ml-5 mt-2 space-y-1 text-sm">
+              <li><strong>Wake up the server:</strong> Render's free tier goes to sleep after 15 minutes. <a href="https://mcp-proxy-backend.onrender.com" target="_blank" rel="noreferrer" className="underline font-bold text-red-900 dark:text-red-300">Click here to open the URL in a new tab</a>. Wait for it to load, then come back and try deploying again.</li>
+              <li><strong>Verify the URL:</strong> Ensure <code className="bg-red-100 dark:bg-red-900/50 px-1 rounded">mcp-proxy-backend.onrender.com</code> is your EXACT live URL from your Render dashboard.</li>
+              <li><strong>Check Backend Logs:</strong> Go to Render.com and make sure your server didn't crash during build.</li>
+            </ol>
+          </div>
+        );
+      } else {
+        setDeployError(`Deployment failed: ${error.message}`);
+      }
     } finally {
       setIsDeploying(false);
     }
@@ -233,7 +248,7 @@ export default function Deploy() {
         {deployError && (
           <div className="mb-6 bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-900/50 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-red-800 dark:text-red-200">Deployment failed: {deployError}</p>
+            <div className="text-red-800 dark:text-red-200">{deployError}</div>
           </div>
         )}
         
