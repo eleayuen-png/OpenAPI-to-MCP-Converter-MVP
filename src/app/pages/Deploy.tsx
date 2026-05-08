@@ -6,37 +6,65 @@ import { AlertCircle } from 'lucide-react';
 
 export default function Deploy() {
   const navigate = useNavigate();
-  const { selectedEndpoints, deploymentInfo, setDeploymentInfo, setLogs } = useApp();
+  // We added 'endpoints' and 'credentials' to this list!
+  const { selectedEndpoints, endpoints, credentials, deploymentInfo, setDeploymentInfo, setLogs } = useApp();
   const [isDeploying, setIsDeploying] = useState(false);
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const handleDeploy = async () => {
     setIsDeploying(true);
+    setDeployError(null);
 
-    // Simulate deployment API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // 1. Prepare the data to send to the backend
+      const apiKeyToUse = credentials.length > 0 ? credentials[0].key : 'no-key-provided';
+      
+      const selectedEndpointDetails = endpoints.filter(ep => 
+        selectedEndpoints.has(`${ep.method}:${ep.path}`)
+      );
 
-    // Generate mock deployment info
-    const serverId = Math.random().toString(36).substring(2, 15);
-    const apiKey = `mcp_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      // 2. Make the REAL network request to your Render backend
+      // ⚠️ REPLACE THIS URL with your actual Render URL!
+      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: apiKeyToUse,
+          endpoints: selectedEndpointDetails,
+          baseUrl: 'https://api.example.com' // Replace with target API base URL later
+        })
+      });
 
-    setDeploymentInfo({
-      serverUrl: `https://mcp-gateway.example.com/servers/${serverId}`,
-      apiKey,
-    });
+      if (!response.ok) {
+        throw new Error('Failed to deploy server to backend');
+      }
 
-    // Add some mock logs
-    setLogs([
-      {
-        id: '1',
-        timestamp: new Date(),
-        level: 'info',
-        endpoint: 'Server Deployment',
-        statusCode: 200,
-        message: `Successfully deployed MCP server with ${selectedEndpoints.size} endpoints`,
-      },
-    ]);
+      const data = await response.json();
 
-    setIsDeploying(false);
+      // 3. Set the real deployment info returned from your server
+      setDeploymentInfo({
+        serverUrl: data.sseUrl,
+        apiKey: apiKeyToUse, 
+      });
+
+      setLogs([
+        {
+          id: Math.random().toString(),
+          timestamp: new Date(),
+          level: 'info',
+          endpoint: 'Server Deployment',
+          statusCode: 200,
+          message: `Successfully deployed MCP server with ID: ${data.serverId}`,
+        },
+      ]);
+
+    } catch (error: any) {
+      setDeployError(error.message);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   if (selectedEndpoints.size === 0) {
@@ -63,6 +91,13 @@ export default function Deploy() {
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto">
+        {deployError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <p className="text-red-800">Deployment failed: {deployError}</p>
+          </div>
+        )}
+        
         {!deploymentInfo ? (
           <>
             <DeploymentPanel
