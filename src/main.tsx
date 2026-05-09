@@ -1,7 +1,8 @@
 import { Buffer } from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+// CHANGE: Imported HashRouter instead of BrowserRouter
+import { HashRouter, Routes, Route, Navigate } from 'react-router';
 
 /**
  * 1. THE POLYFILL (Must be at the absolute top)
@@ -19,9 +20,6 @@ if (typeof window !== 'undefined') {
 
 /**
  * 2. IMPORTS
- * NOTE: The "Could not resolve" errors appearing in this preview window 
- * are expected because this online environment cannot see your local 
- * folder structure. These paths are correct for your local Vite project.
  */
 // @ts-ignore
 import Root from './app/pages/Root';
@@ -42,7 +40,7 @@ import './styles/theme.css';
 
 /**
  * 3. RENDERING & ROUTING
- * Using absolute paths for child routes to ensure reliable matching across all steps.
+ * Using HashRouter to ensure compatibility with GitHub Pages
  */
 const container = document.getElementById('root');
 
@@ -50,7 +48,7 @@ if (container) {
   const root = ReactDOM.createRoot(container as HTMLElement);
   root.render(
     <React.StrictMode>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/" element={<Root />}>
             {/* Landing/Step 1 */}
@@ -69,7 +67,7 @@ if (container) {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </React.StrictMode>
   );
 }
