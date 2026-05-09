@@ -8,4 +8,6 @@ export default defineConfig({
     react(),
     tailwindcss(), // This plugin handles the v4 compilation natively
   ],
+  // IMPORTANT: Replace 'OpenAPI-to-MCP-Converter' with your EXACT GitHub repository name
+  base: '/OpenAPI-to-MCP-Converter/', 
 });
