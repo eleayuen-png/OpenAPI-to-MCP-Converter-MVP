@@ -4,7 +4,11 @@ name: Deploy static content to Pages
 on:
   # Runs on pushes targeting the default branch
   push:
+<<<<<<< HEAD
     branches: ['main']
+=======
+    branches: ['Migrate-from-Netlify-to-Github']
+>>>>>>> 6276f0c2915f3a6440a7263206bfb379789b27fa
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
