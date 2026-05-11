@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 // @ts-ignore
-import { useApp } from '../context/AppContext.tsx';
+import { useApp } from '../context/AppContext';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -10,26 +10,25 @@ import {
   Check, 
   Lightbulb, 
   Sparkles, 
-  Loader2 
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 export default function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   
   let context: any = null;
   try {
     context = useApp();
-  } catch (e) {
-    // Fallback for isolated preview environments
-  }
+  } catch (e) {}
 
   if (!context) {
     return <div className="p-20 text-center text-slate-500">Initializing workspace...</div>;
   }
 
   const { endpoints = [], selectedEndpoints = new Set(), setSelectedEndpoints = () => {} } = context;
-
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -94,6 +93,7 @@ export default function Prune() {
    */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
         method: 'POST',
@@ -107,11 +107,18 @@ export default function Prune() {
       });
       
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.details || data.error || "Server Error");
+      }
+
       if (data.suggestions) {
+        // Suggest the best tools identified by AI
         setSelectedEndpoints(new Set(data.suggestions));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Magic Suggest failed:", error);
+      setAnalysisError(error.message);
     } finally {
       setIsAnalyzing(false);
     }
@@ -132,7 +139,16 @@ export default function Prune() {
     <div className="p-8 animate-in fade-in duration-500">
       <div className="max-w-5xl mx-auto">
         
-        {/* Search & Global Controls */}
+        {analysisError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in slide-in-from-top-2">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-bold">Magic Suggest Failed</p>
+              <p>{analysisError}</p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden mb-6 transition-colors">
           <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-4">
             <div className="relative flex-1 w-full">
@@ -141,8 +157,8 @@ export default function Prune() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search endpoints by path or description..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white placeholder:text-slate-400 transition-colors"
+                placeholder="Search endpoints..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
               />
             </div>
             
@@ -191,7 +207,6 @@ export default function Prune() {
           </div>
         </div>
 
-        {/* Categories & Endpoints List */}
         <div className="space-y-6">
           {Object.entries(filteredGroups).map(([category, eps]) => {
             const categoryIds = eps.map((ep: any) => `${ep.method}:${ep.path}`);
@@ -225,7 +240,7 @@ export default function Prune() {
                           className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-colors ${
                             isSelected 
                               ? 'bg-blue-600 border-blue-600 text-white' 
-                              : 'border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400'
+                              : 'border-slate-300 dark:border-slate-600 hover:border-blue-500'
                           }`}
                         >
                           {isSelected && <Check className="h-3.5 w-3.5" />}
@@ -251,7 +266,6 @@ export default function Prune() {
           })}
         </div>
 
-        {/* Helper Tip */}
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-xl p-4 flex items-start sm:items-center gap-3 transition-colors">
           <Lightbulb className="h-5 w-5 text-blue-500 shrink-0" />
           <p className="text-sm text-[#141B41]/80 dark:text-blue-200/80">
@@ -259,25 +273,14 @@ export default function Prune() {
           </p>
         </div>
 
-        {/* Footer Navigation */}
         <div className="mt-8 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white transition-colors font-medium group"
-          >
-            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Upload
+          <button onClick={() => navigate('/')} className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] transition-colors font-medium group">
+            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back
           </button>
-          
-          <button
-            onClick={() => navigate('/macro-tools')}
-            className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-blue-900/10 active:scale-95 group"
-          >
-            Continue to Macro Tools
-            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          <button onClick={() => navigate('/macro-tools')} className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg group">
+            Continue <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
-
       </div>
     </div>
   );
