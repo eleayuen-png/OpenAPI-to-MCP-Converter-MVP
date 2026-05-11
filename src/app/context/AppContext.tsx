@@ -14,29 +14,23 @@ import {
   getFirestore, 
   doc, 
   onSnapshot, 
-  setDoc, 
-  collection 
+  setDoc 
 } from 'firebase/firestore';
 
 import type { Endpoint } from '../components/EndpointList';
 
-// --- Global Declarations for Environment Variables ---
+// --- Global Declarations ---
 declare global {
-  const __firebase_config: string;
+  const __firebase_config: string | undefined;
   const __app_id: string | undefined;
   const __initial_auth_token: string | undefined;
 }
-
-// --- Interfaces ---
 
 export interface MacroTool {
   id: string;
   name: string;
   description: string;
-  steps: Array<{
-    method: string;
-    path: string;
-  }>;
+  steps: Array<{ method: string; path: string; }>;
 }
 
 export interface ApiCredential {
@@ -75,15 +69,16 @@ interface AppContextType {
   isInitialLoad: boolean;
 }
 
-// --- Firebase Initialization ---
-
-// @ts-ignore - Variables provided by the environment
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-// @ts-ignore - appId provided by the environment
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'mcp-studio-v1';
+// 🚀 YOUR FIREBASE CONFIGURATION
+const localFirebaseConfig = {
+  apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
+  authDomain: "mcp-studio-22971.firebaseapp.com",
+  projectId: "mcp-studio-22971",
+  storageBucket: "mcp-studio-22971.firebasestorage.app",
+  messagingSenderId: "1096681882291",
+  appId: "1:1096681882291:web:9452e01ee86294b33ee6c6",
+  measurementId: "G-8HBCC81VHB"
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -99,55 +94,62 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logs, setLogsState] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfoState] = useState<{ serverUrl: string; apiKey: string } | null>(null);
 
-  // --- Auth Effect ---
+  // --- Initialize Firebase Safely ---
+  const [db, setDb] = useState<any>(null);
+  const [appId, setAppId] = useState('mcp-studio-v1');
+
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // @ts-ignore - Token provided by the environment
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Auth failed:", error);
+    try {
+      // Priority: 1. Environment Config (Workspace) 2. Local Config (Your Live Site)
+      const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
+
+      const firebaseApp = initializeApp(config);
+      const firebaseAuth = getAuth(firebaseApp);
+      const firestore = getFirestore(firebaseApp);
+      
+      setDb(firestore);
+      
+      if (typeof __app_id !== 'undefined') {
+        setAppId(__app_id);
       }
-    };
 
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
+      // Auth Flow
+      const initAuth = async () => {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+        } else {
+          await signInAnonymously(firebaseAuth);
+        }
+      };
+      initAuth();
 
-    return () => unsubscribe();
+      return onAuthStateChanged(firebaseAuth, (u) => setUser(u));
+    } catch (e) {
+      console.error("Firebase Init Error:", e);
+      setIsInitialLoad(false);
+    }
   }, []);
 
   // --- Persistence Effect (Real-time Sync) ---
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
 
-    // RULE 1: Strict Paths
-    // Using a single document "projectState" to keep it simple and ensure data consistency
     const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
-
+    
     const unsubscribe = onSnapshot(projectDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
         
-        // Logs are stored separately usually, but for MVP we sync them here
         if (data.logs) {
-          // Re-convert serializable timestamps back to Dates
-          const hydratedLogs = data.logs.map((log: any) => ({
-            ...log,
-            timestamp: log.timestamp?.toDate() || new Date(log.timestamp)
-          }));
-          setLogsState(hydratedLogs);
+          setLogsState(data.logs.map((l: any) => ({
+            ...l,
+            timestamp: l.timestamp?.toDate() || new Date(l.timestamp)
+          })));
         }
       }
       setIsInitialLoad(false);
@@ -157,21 +159,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, db, appId]);
 
   // --- Helper for updating cloud state ---
-  const syncToCloud = async (newState: Partial<{
-    endpoints: Endpoint[];
-    selectedEndpoints: string[];
-    macros: MacroTool[];
-    credentials: ApiCredential[];
-    logs: any[];
-    deploymentInfo: any;
-  }>) => {
-    if (!user) return;
-    const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
-    
+  const syncToCloud = async (newState: any) => {
+    if (!user || !db) return;
     try {
+      const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, newState, { merge: true });
     } catch (error) {
       console.error("Error syncing to cloud:", error);
@@ -179,63 +173,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // --- Wrapped Setters ---
-
-  const setEndpoints = (val: Endpoint[]) => {
-    setEndpointsState(val);
-    syncToCloud({ endpoints: val });
-  };
-
-  const setSelectedEndpoints = (val: Set<string>) => {
-    setSelectedEndpointsState(val);
-    syncToCloud({ selectedEndpoints: Array.from(val) });
-  };
-
-  const setMacros = (val: MacroTool[]) => {
-    setMacrosState(val);
-    syncToCloud({ macros: val });
-  };
-
-  const setCredentials = (val: ApiCredential[]) => {
-    setCredentialsState(val);
-    syncToCloud({ credentials: val });
-  };
-
-  const setLogs = (valOrFn: LogEntry[] | ((prev: LogEntry[]) => LogEntry[])) => {
-    const newLogs = typeof valOrFn === 'function' ? valOrFn(logs) : valOrFn;
-    setLogsState(newLogs);
-    syncToCloud({ logs: newLogs });
-  };
-
-  const setDeploymentInfo = (val: { serverUrl: string; apiKey: string } | null) => {
-    setDeploymentInfoState(val);
-    syncToCloud({ deploymentInfo: val });
+  const value = {
+    user,
+    endpoints,
+    setEndpoints: (val: Endpoint[]) => { setEndpointsState(val); syncToCloud({ endpoints: val }); },
+    selectedEndpoints,
+    setSelectedEndpoints: (val: Set<string>) => { setSelectedEndpointsState(val); syncToCloud({ selectedEndpoints: Array.from(val) }); },
+    macros,
+    setMacros: (val: MacroTool[]) => { setMacrosState(val); syncToCloud({ macros: val }); },
+    credentials,
+    setCredentials: (val: ApiCredential[]) => { setCredentialsState(val); syncToCloud({ credentials: val }); },
+    logs,
+    setLogs: (valOrFn: LogEntry[] | ((prev: LogEntry[]) => LogEntry[])) => { 
+      const next = typeof valOrFn === 'function' ? valOrFn(logs) : valOrFn;
+      setLogsState(next); syncToCloud({ logs: next }); 
+    },
+    deploymentInfo,
+    setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val }); },
+    isInitialLoad
   };
 
   return (
-    <AppContext.Provider
-      value={{
-        user,
-        endpoints,
-        setEndpoints,
-        selectedEndpoints,
-        setSelectedEndpoints,
-        macros,
-        setMacros,
-        credentials,
-        setCredentials,
-        logs,
-        setLogs,
-        deploymentInfo,
-        setDeploymentInfo,
-        isInitialLoad
-      }}
-    >
+    <AppContext.Provider value={value}>
       {!isInitialLoad && children}
       {isInitialLoad && (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19]">
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500 font-medium">Syncing with cloud...</p>
+            <p className="text-slate-500 font-medium">Restoring your workspace...</p>
           </div>
         </div>
       )}
@@ -245,8 +210,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider');
-  }
+  if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 }
