@@ -14,7 +14,9 @@ import {
   getFirestore, 
   doc, 
   onSnapshot, 
-  setDoc 
+  setDoc,
+  collection,
+  addDoc
 } from 'firebase/firestore';
 
 import type { Endpoint } from '../components/EndpointList';
@@ -63,9 +65,14 @@ interface AppContextType {
   credentials: ApiCredential[];
   setCredentials: (credentials: ApiCredential[]) => void;
   logs: LogEntry[];
+  addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => Promise<void>;
   setLogs: (logs: LogEntry[]) => void;
-  deploymentInfo: { serverUrl: string; apiKey: string } | null;
-  setDeploymentInfo: (info: { serverUrl: string; apiKey: string } | null) => void;
+  deploymentInfo: { serverUrl: string; apiKey: string; piiMasking?: boolean } | null;
+  setDeploymentInfo: (info: any | null) => void;
+  piiMasking: boolean;
+  setPiiMasking: (enabled: boolean) => void;
+  targetBaseUrl: string;
+  setTargetBaseUrl: (url: string) => void;
   isInitialLoad: boolean;
 }
 
@@ -95,7 +102,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [macros, setMacrosState] = useState<MacroTool[]>([]);
   const [credentials, setCredentialsState] = useState<ApiCredential[]>([]);
   const [logs, setLogsState] = useState<LogEntry[]>([]);
-  const [deploymentInfo, setDeploymentInfoState] = useState<{ serverUrl: string; apiKey: string } | null>(null);
+  const [deploymentInfo, setDeploymentInfoState] = useState<any | null>(null);
+  const [piiMasking, setPiiMaskingState] = useState(false);
+  const [targetBaseUrl, setTargetBaseUrlState] = useState('');
 
   const [db, setDb] = useState<any>(null);
   const [appId, setAppId] = useState('mcp-studio-v1');
@@ -155,6 +164,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
+        if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
+        if (data.targetBaseUrl) setTargetBaseUrlState(data.targetBaseUrl);
+        
         if (data.logs) {
           setLogsState(data.logs.map((l: any) => ({
             ...l,
@@ -182,7 +194,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     try {
       // 🧹 THE SANITIZER: Strip out any keys with 'undefined' values
-      // Firestore will crash if it sees an explicit 'undefined'.
       const cleanData = JSON.parse(JSON.stringify(newState, (key, value) => {
         return value === undefined ? null : value;
       }));
@@ -192,6 +203,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
     } catch (error) {
       console.error("❌ Cloud Save Failed:", error);
+    }
+  };
+
+  // 4. Enhanced Logging logic (Sub-collection)
+  const addLog = async (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    if (!user || !db) return;
+    
+    const logData = { 
+      ...log, 
+      timestamp: new Date(), 
+      id: Math.random().toString(36).substr(2, 9) 
+    };
+    
+    // Update local state for immediate UI feedback (keep only last 50 locally)
+    setLogsState(prev => [logData, ...prev].slice(0, 50));
+
+    try {
+      // 📂 Enhanced Logging: Save to a separate sub-collection for permanent audit trail
+      const logsColRef = collection(db, 'artifacts', appId, 'users', user.uid, 'logs');
+      await addDoc(logsColRef, logData);
+      
+      // Also keep a small summary snapshot in the main document for the quick-view
+      syncToCloud({ logs: [logData, ...logs].slice(0, 10) });
+    } catch (e) {
+      console.error("❌ Failed to save enhanced log:", e);
     }
   };
 
@@ -206,12 +242,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     credentials,
     setCredentials: (val: ApiCredential[]) => { setCredentialsState(val); syncToCloud({ credentials: val }); },
     logs,
+    addLog,
     setLogs: (valOrFn: LogEntry[] | ((prev: LogEntry[]) => LogEntry[])) => { 
       const next = typeof valOrFn === 'function' ? valOrFn(logs) : valOrFn;
       setLogsState(next); syncToCloud({ logs: next }); 
     },
     deploymentInfo,
     setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
+    piiMasking,
+    setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
+    targetBaseUrl,
+    setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     isInitialLoad
   };
 

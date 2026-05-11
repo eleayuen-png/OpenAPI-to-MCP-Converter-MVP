@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { 
   AlertCircle, 
@@ -10,10 +10,13 @@ import {
   Check, 
   Code, 
   Pointer,
-  ExternalLink
+  ExternalLink,
+  Shield,
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 
-// @ts-ignore - Resolving path to reach the context folder from pages directory
+// @ts-ignore - Reverting to relative path for better compatibility with current build environment
 import { useApp } from '../context/AppContext';
 
 // --- Helper Components ---
@@ -32,6 +35,8 @@ export function DeploymentPanel({
   let context: any = null;
   try { context = useApp(); } catch(e) {}
   const selectedEndpoints = context?.selectedEndpoints || new Set();
+  const piiMasking = context?.piiMasking;
+  const setPiiMasking = context?.setPiiMasking;
 
   return (
     <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center transition-colors">
@@ -43,18 +48,39 @@ export function DeploymentPanel({
         You have selected {selectedEndpoints.size} endpoints. We will securely deploy an MCP server configuration that proxies requests through your provided credentials.
       </p>
 
-      <div className="max-w-md mx-auto mb-8 text-left">
-        <label className="text-sm font-medium text-[#141B41] dark:text-slate-300 mb-1.5 block">Target API Base URL</label>
-        <input 
-          type="url" 
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="e.g., https://api.example.com/v1"
-          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-        />
-        <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-          <Info size={12} /> This is the real API address your proxy will talk to.
-        </p>
+      <div className="max-w-md mx-auto mb-8 space-y-6 text-left">
+        <div>
+          <label className="text-sm font-medium text-[#141B41] dark:text-slate-300 mb-1.5 block">Target API Base URL</label>
+          <input 
+            type="url" 
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="e.g., https://api.example.com/v1"
+            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          />
+          <p className="mt-2 text-[10px] text-slate-500 flex items-center gap-1">
+             <Info size={12} /> This is the real API address your proxy will talk to.
+          </p>
+        </div>
+
+        {/* PII Masking Toggle */}
+        <div className={`p-4 rounded-xl border transition-all ${piiMasking ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-800'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {piiMasking ? <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" /> : <ShieldAlert className="w-4 h-4 text-slate-400" />}
+              <span className="font-semibold text-xs text-[#141B41] dark:text-white uppercase tracking-wider">PII Redaction</span>
+            </div>
+            <button 
+              onClick={() => setPiiMasking(!piiMasking)}
+              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${piiMasking ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+            >
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${piiMasking ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            Automatically masks emails and phone numbers in responses before they reach the LLM.
+          </p>
+        </div>
       </div>
 
       <button
@@ -83,9 +109,19 @@ export function DeploymentSuccess() {
   const serverUrl = deploymentInfo.serverUrl || '';
   
   const copyToClipboard = (text: string, setter: (val: boolean) => void) => {
-    navigator.clipboard.writeText(text);
-    setter(true);
-    setTimeout(() => setter(false), 2000);
+    // Robust copy fallback for iframe environments
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setter(true);
+      setTimeout(() => setter(false), 2000);
+    } catch (err) {
+      console.error('Unable to copy', err);
+    }
+    document.body.removeChild(textArea);
   };
 
   const clineSnippet = JSON.stringify({
@@ -105,7 +141,14 @@ export function DeploymentSuccess() {
              <Check className="h-6 w-6 text-white" />
           </div>
           <div className="flex-1 w-full">
-            <h2 className="text-2xl font-semibold text-green-800 dark:text-green-400 mb-2">Successfully Deployed!</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-2xl font-semibold text-green-800 dark:text-green-400">Successfully Deployed!</h2>
+              {deploymentInfo.piiMasking && (
+                <span className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-700 dark:text-green-300 px-2 py-1 rounded-full font-bold uppercase tracking-wider">
+                  <Shield size={10} /> PII Masking Active
+                </span>
+              )}
+            </div>
             <p className="text-green-700 dark:text-green-300 mb-6 text-sm sm:text-base">
               Your MCP server is live with {selectedEndpoints.size} endpoints. Copy the configuration below to connect your AI client.
             </p>
@@ -137,7 +180,6 @@ export function DeploymentSuccess() {
            Client Configuration Snippets
         </h3>
 
-        {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
           <button
             onClick={() => setActiveTab('cursor')}
@@ -159,7 +201,6 @@ export function DeploymentSuccess() {
           </button>
         </div>
         
-        {/* Cursor Tab */}
         {activeTab === 'cursor' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -295,7 +336,6 @@ export function DeploymentSuccess() {
 
 export default function Deploy() {
   const navigate = useNavigate();
-  
   const context = useApp() as any;
   const { 
     selectedEndpoints, 
@@ -304,12 +344,20 @@ export default function Deploy() {
     macros, 
     deploymentInfo, 
     setDeploymentInfo, 
-    setLogs 
+    addLog,
+    piiMasking,
+    targetBaseUrl 
   } = context;
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<React.ReactNode | null>(null);
-  const [baseUrl, setBaseUrl] = useState('https://petstore.swagger.io/v2');
+  const [baseUrl, setBaseUrl] = useState(targetBaseUrl || 'https://petstore.swagger.io/v2');
+
+  useEffect(() => {
+    if (targetBaseUrl && baseUrl === 'https://petstore.swagger.io/v2') {
+      setBaseUrl(targetBaseUrl);
+    }
+  }, [targetBaseUrl]);
 
   const handleDeploy = async () => {
     setIsDeploying(true);
@@ -317,23 +365,22 @@ export default function Deploy() {
 
     try {
       const apiKeyToUse = credentials.length > 0 ? credentials[0].key : 'no-key-provided';
-      
       const selectedEndpointDetails = endpoints.filter((ep: any) => 
         selectedEndpoints.has(`${ep.method}:${ep.path}`)
       );
 
+      // POINT TO YOUR RENDER BACKEND
       const targetUrl = 'https://mcp-proxy-backend.onrender.com/api/deploy';
       
       const response = await fetch(targetUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKeyToUse,
           endpoints: selectedEndpointDetails,
           baseUrl: baseUrl.trim(),
-          macros: macros || [] // Ensure we send an empty array if no macros exist
+          macros: macros || [],
+          piiMasking: !!piiMasking 
         })
       });
 
@@ -347,20 +394,16 @@ export default function Deploy() {
       setDeploymentInfo({
         serverUrl: data.sseUrl,
         apiKey: apiKeyToUse, 
+        piiMasking: !!piiMasking
       });
 
-      if (setLogs) {
-        setLogs((prev: any) => [
-          {
-            id: Math.random().toString(),
-            timestamp: new Date(),
-            level: 'info',
-            endpoint: 'Deployment',
-            statusCode: 200,
-            message: `Successfully deployed MCP server with ${selectedEndpointDetails.length} tools and ${(macros || []).length} macros.`,
-          },
-          ...prev
-        ]);
+      if (addLog) {
+        await addLog({
+          level: 'info',
+          endpoint: 'Deployment',
+          statusCode: 200,
+          message: `Successfully deployed MCP server with ${selectedEndpointDetails.length} tools. PII Redaction: ${piiMasking ? 'ENABLED' : 'DISABLED'}`,
+        });
       }
 
     } catch (error: any) {
@@ -392,14 +435,5 @@ export default function Deploy() {
         )}
       </div>
     </div>
-  );
-}
-
-// Simple Info icon replacement if lucide import is messy
-function Info({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
-    </svg>
   );
 }
