@@ -83,7 +83,7 @@ interface AppContextType {
   logout: () => Promise<void>;
 }
 
-// 🚀 YOUR FIREBASE CONFIGURATION (Verified)
+// 🚀 YOUR FIREBASE CONFIGURATION
 const localFirebaseConfig = {
   apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
   authDomain: "mcp-studio-22971.firebaseapp.com",
@@ -100,7 +100,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
-  // Use a ref to track if we are currently loading from cloud to prevent feedback loops
   const isHydrating = useRef(true);
 
   // App State
@@ -214,8 +213,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, cleanData, { merge: true });
       console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
-    } catch (error) {
-      console.error("❌ Cloud Save Failed:", error);
+    } catch (error: any) {
+      console.warn("⚠️ Cloud Save Failed (likely permission sync issue):", error.message);
     }
   };
 
@@ -235,8 +234,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const logsColRef = collection(db, 'artifacts', appId, 'users', user.uid, 'logs');
       await addDoc(logsColRef, logData);
       syncToCloud({ logs: [logData, ...logs].slice(0, 10) });
-    } catch (e) {
-      console.error("❌ Failed to save enhanced log:", e);
+    } catch (e: any) {
+      console.warn("⚠️ Failed to save enhanced log to cloud. Proceeding locally.", e.message);
     }
   };
 
@@ -244,57 +243,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
-      // 1. Trigger the popup to get the Google Credential
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
 
       if (!credential) throw new Error("Could not retrieve Google credential.");
 
-      // 2. If the user is currently anonymous, try to link the account
       if (user?.isAnonymous) {
         try {
           await linkWithCredential(user, credential);
           console.log("🔗 Guest account successfully linked to Google.");
         } catch (linkError: any) {
-          // 3. HANDLE CONFLICT: If Google account already exists, standard link fails
           if (linkError.code === 'auth/credential-already-in-use') {
             console.warn("⚠️ Google account already exists. Switching to that account instead of linking.");
-            // Log in as that existing user
             await signInWithCredential(auth, credential);
             
-            await addLog({
-              level: 'info',
-              endpoint: 'Auth',
-              statusCode: 200,
-              message: "Signed in to existing Google account. Guest data was not merged."
-            });
+            // Add a local log, no need to await cloud sync if it might fail mid-auth
+            setLogsState(prev => [{
+              id: Math.random().toString(), timestamp: new Date(), level: 'info' as const,
+              endpoint: 'Auth', statusCode: 200, message: "Signed in to existing Google account."
+            }, ...prev].slice(0, 50));
           } else {
             throw linkError;
           }
         }
-      } else {
-        // Already logged in or not anonymous, result from signInWithPopup is enough
-        console.log("👤 Standard Google Sign-in complete.");
       }
     } catch (e: any) {
       console.error("Auth Error:", e);
       
-      if (e.code === 'auth/unauthorized-domain') {
-        console.error("🛑 ACTION REQUIRED: Add this domain to your Firebase Authorized Domains list in the Firebase Console.");
-        await addLog({
-          level: 'error',
-          endpoint: 'Auth',
-          statusCode: 403,
-          message: "Sign-in failed: Domain not authorized in Firebase Console."
-        });
-      } else {
-        await addLog({
-          level: 'error',
-          endpoint: 'Auth',
-          statusCode: 500,
-          message: `Authentication failed: ${e.message}`
-        });
+      let friendlyMessage = `Authentication failed: ${e.message}`;
+      
+      // Handle Sandbox & Configuration Errors Gracefully
+      if (e.message.includes('Cross-Origin') || e.code === 'auth/popup-blocked') {
+        friendlyMessage = "Popup blocked by preview environment. Please test Google Auth on your deployed live site.";
+      } else if (e.message.includes('400') || e.code === 'auth/internal-error') {
+        friendlyMessage = "Firebase Config Error: Set a 'Support Email' in Firebase Project Settings (General tab) to use Google Auth.";
       }
+
+      // Add to local state immediately so user sees it even if cloud permissions fail
+      setLogsState(prev => [{
+        id: Math.random().toString(), timestamp: new Date(), level: 'error' as const,
+        endpoint: 'Auth', statusCode: 400, message: friendlyMessage
+      }, ...prev].slice(0, 50));
     }
   };
 
@@ -302,7 +291,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth) return;
     try {
       await signOut(auth);
-      // Reload to re-initialize an anonymous session
       window.location.reload();
     } catch (e) {
       console.error("Logout Error:", e);
