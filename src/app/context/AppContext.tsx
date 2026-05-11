@@ -113,8 +113,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
-      console.log("☁️ Initializing Firebase...");
-      
       const firebaseApp = initializeApp(config);
       const firebaseAuth = getAuth(firebaseApp);
       const firestore = getFirestore(firebaseApp);
@@ -128,7 +126,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             await signInWithCustomToken(firebaseAuth, __initial_auth_token);
           } else {
             await signInAnonymously(firebaseAuth);
-            console.log("👤 Anonymous Sign-in Successful");
           }
         } catch (authErr) {
           console.error("❌ Auth Error:", authErr);
@@ -136,10 +133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       
       initAuth();
-      return onAuthStateChanged(firebaseAuth, (u) => {
-        console.log("🆔 User ID:", u?.uid || "Logged Out");
-        setUser(u);
-      });
+      return onAuthStateChanged(firebaseAuth, (u) => setUser(u));
     } catch (e) {
       console.error("❌ Firebase Setup Error:", e);
       setIsInitialLoad(false);
@@ -153,11 +147,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     
     const unsubscribe = onSnapshot(projectDocRef, (docSnap) => {
-      isHydrating.current = true; // Block syncToCloud while we update local state
+      isHydrating.current = true; 
       
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log("✅ Syncing cloud data to local state...");
         
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
@@ -167,16 +160,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.targetBaseUrl) setTargetBaseUrlState(data.targetBaseUrl);
         
+        // 🛡️ FIX: Safe Timestamp Parsing
         if (data.logs) {
-          setLogsState(data.logs.map((l: any) => ({
-            ...l,
-            timestamp: l.timestamp?.toDate() || new Date(l.timestamp)
-          })));
+          setLogsState(data.logs.map((l: any) => {
+            let parsedDate = new Date();
+            if (l.timestamp) {
+              if (typeof l.timestamp.toDate === 'function') {
+                parsedDate = l.timestamp.toDate();
+              } else {
+                parsedDate = new Date(l.timestamp);
+              }
+            }
+            return { ...l, timestamp: parsedDate };
+          }));
         }
       }
       
       setIsInitialLoad(false);
-      // Brief delay to ensure state updates finish before allowing cloud writes
       setTimeout(() => { isHydrating.current = false; }, 100);
     }, (error) => {
       console.error("❌ Firestore Sync Error:", error);
@@ -189,18 +189,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // 3. Sync to Cloud (Write to Cloud)
   const syncToCloud = async (newState: any) => {
-    // 🛡️ SECURITY & STABILITY GUARDS
     if (!user || !db || isHydrating.current) return;
     
     try {
-      // 🧹 THE SANITIZER: Strip out any keys with 'undefined' values
-      const cleanData = JSON.parse(JSON.stringify(newState, (key, value) => {
-        return value === undefined ? null : value;
-      }));
+      // 🛡️ FIX: Remove JSON.stringify to keep native Date objects
+      const cleanData = { ...newState };
+      Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === undefined) cleanData[key] = null;
+      });
 
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, cleanData, { merge: true });
-      console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
     } catch (error) {
       console.error("❌ Cloud Save Failed:", error);
     }
@@ -216,15 +215,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: Math.random().toString(36).substr(2, 9) 
     };
     
-    // Update local state for immediate UI feedback (keep only last 50 locally)
     setLogsState(prev => [logData, ...prev].slice(0, 50));
 
     try {
-      // 📂 Enhanced Logging: Save to a separate sub-collection for permanent audit trail
       const logsColRef = collection(db, 'artifacts', appId, 'users', user.uid, 'logs');
       await addDoc(logsColRef, logData);
-      
-      // Also keep a small summary snapshot in the main document for the quick-view
       syncToCloud({ logs: [logData, ...logs].slice(0, 10) });
     } catch (e) {
       console.error("❌ Failed to save enhanced log:", e);
