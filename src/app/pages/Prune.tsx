@@ -1,11 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 // @ts-ignore
-import { useApp } from '../context/AppContext';
-import { ChevronRight, ChevronLeft, Filter, Search, Check, Lightbulb } from 'lucide-react';
+import { useApp } from '../context/AppContext.tsx';
+import { 
+  ChevronRight, 
+  ChevronLeft, 
+  Filter, 
+  Search, 
+  Check, 
+  Lightbulb, 
+  Sparkles, 
+  Loader2 
+} from 'lucide-react';
 
 export default function Prune() {
   const navigate = useNavigate();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   let context: any = null;
   try {
@@ -78,6 +88,35 @@ export default function Prune() {
     setSelectedEndpoints(new Set());
   };
 
+  /**
+   * 🪄 MAGIC SUGGEST
+   * Calls the backend to analyze the schema using AI and suggest the best tools.
+   */
+  const handleMagicSuggest = async () => {
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          endpoints: endpoints.map((ep: any) => ({
+            id: `${ep.method}:${ep.path}`,
+            description: ep.description || ep.summary || ''
+          }))
+        })
+      });
+      
+      const data = await response.json();
+      if (data.suggestions) {
+        setSelectedEndpoints(new Set(data.suggestions));
+      }
+    } catch (error) {
+      console.error("Magic Suggest failed:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const getMethodColor = (method: string) => {
     switch (method.toUpperCase()) {
       case 'GET': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800';
@@ -106,12 +145,23 @@ export default function Prune() {
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white placeholder:text-slate-400 transition-colors"
               />
             </div>
-            <button
-              onClick={deselectAllGlobal}
-              className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors shadow-sm whitespace-nowrap"
-            >
-              Deselect All
-            </button>
+            
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleMagicSuggest}
+                disabled={isAnalyzing || endpoints.length === 0}
+                className="flex-1 sm:flex-none px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Magic Suggest
+              </button>
+              <button
+                onClick={deselectAllGlobal}
+                className="flex-1 sm:flex-none px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 whitespace-nowrap"
+              >
+                Deselect All
+              </button>
+            </div>
           </div>
           
           <div className="p-3 sm:p-4 flex flex-wrap items-center gap-2">
