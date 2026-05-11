@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 // @ts-ignore
 import { initializeApp } from 'firebase/app';
 // @ts-ignore
@@ -85,7 +85,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [hasConfig, setHasConfig] = useState(true);
+  
+  // Use a ref to track if we are currently loading from cloud to prevent feedback loops
+  const isHydrating = useRef(true);
 
   // App State
   const [endpoints, setEndpointsState] = useState<Endpoint[]>([]);
@@ -102,8 +104,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
-      
-      console.log("☁️ Initializing Firebase with Project ID:", config.projectId);
+      console.log("☁️ Initializing Firebase...");
       
       const firebaseApp = initializeApp(config);
       const firebaseAuth = getAuth(firebaseApp);
@@ -117,7 +118,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(firebaseAuth, __initial_auth_token);
           } else {
-            // Anonymous sign-in is required for your live site!
             await signInAnonymously(firebaseAuth);
             console.log("👤 Anonymous Sign-in Successful");
           }
@@ -128,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       initAuth();
       return onAuthStateChanged(firebaseAuth, (u) => {
-        console.log("🆔 Auth State Changed. User ID:", u?.uid || "Logged Out");
+        console.log("🆔 User ID:", u?.uid || "Logged Out");
         setUser(u);
       });
     } catch (e) {
@@ -141,15 +141,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !db) return;
 
-    const path = `/artifacts/${appId}/users/${user.uid}/project/current`;
-    console.log("📂 Listening for data at:", path);
-
     const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     
     const unsubscribe = onSnapshot(projectDocRef, (docSnap) => {
+      isHydrating.current = true; // Block syncToCloud while we update local state
+      
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log("✅ Cloud data found, updating local state...");
+        console.log("✅ Syncing cloud data to local state...");
+        
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
@@ -161,13 +161,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             timestamp: l.timestamp?.toDate() || new Date(l.timestamp)
           })));
         }
-      } else {
-        console.log("ℹ️ No existing cloud project found. Starting fresh.");
       }
+      
       setIsInitialLoad(false);
+      // Brief delay to ensure state updates finish before allowing cloud writes
+      setTimeout(() => { isHydrating.current = false; }, 100);
     }, (error) => {
-      console.error("❌ Firestore Permission/Sync Error:", error);
+      console.error("❌ Firestore Sync Error:", error);
       setIsInitialLoad(false);
+      isHydrating.current = false;
     });
 
     return () => unsubscribe();
@@ -175,23 +177,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // 3. Sync to Cloud (Write to Cloud)
   const syncToCloud = async (newState: any) => {
-    if (!user || !db) {
-      console.warn("⚠️ Cloud sync skipped: User not authenticated yet.");
-      return;
-    }
+    // 🛡️ SECURITY & STABILITY GUARDS
+    if (!user || !db || isHydrating.current) return;
     
     try {
+      // 🧹 THE SANITIZER: Strip out any keys with 'undefined' values
+      // Firestore will crash if it sees an explicit 'undefined'.
+      const cleanData = JSON.parse(JSON.stringify(newState, (key, value) => {
+        return value === undefined ? null : value;
+      }));
+
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
-      await setDoc(projectDocRef, newState, { merge: true });
-      console.log("💾 Saved to cloud:", Object.keys(newState));
+      await setDoc(projectDocRef, cleanData, { merge: true });
+      console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
     } catch (error) {
-      console.error("❌ Failed to save to cloud:", error);
+      console.error("❌ Cloud Save Failed:", error);
     }
   };
-
-  if (!hasConfig) {
-    return <div className="p-20 text-center">Missing Firebase Configuration</div>;
-  }
 
   const value = {
     user,
@@ -209,7 +211,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLogsState(next); syncToCloud({ logs: next }); 
     },
     deploymentInfo,
-    setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val }); },
+    setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
     isInitialLoad
   };
 
@@ -218,9 +220,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {!isInitialLoad && children}
       {isInitialLoad && (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19]">
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 text-center p-8">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500 font-medium">Restoring your workspace...</p>
+            <div>
+              <p className="text-slate-900 dark:text-white font-semibold">Restoring your workspace</p>
+              <p className="text-slate-500 text-sm">Synchronizing with MCP Studio Cloud...</p>
+            </div>
           </div>
         </div>
       )}
