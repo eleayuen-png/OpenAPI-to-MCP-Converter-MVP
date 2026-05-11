@@ -69,7 +69,7 @@ interface AppContextType {
   isInitialLoad: boolean;
 }
 
-// 🚀 YOUR FIREBASE CONFIGURATION
+// 🚀 YOUR FIREBASE CONFIGURATION (Verified)
 const localFirebaseConfig = {
   apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
   authDomain: "mcp-studio-22971.firebaseapp.com",
@@ -85,6 +85,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [hasConfig, setHasConfig] = useState(true);
 
   // App State
   const [endpoints, setEndpointsState] = useState<Endpoint[]>([]);
@@ -94,85 +95,104 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logs, setLogsState] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfoState] = useState<{ serverUrl: string; apiKey: string } | null>(null);
 
-  // --- Initialize Firebase Safely ---
   const [db, setDb] = useState<any>(null);
   const [appId, setAppId] = useState('mcp-studio-v1');
 
+  // 1. Initialize Firebase & Auth
   useEffect(() => {
     try {
-      // Priority: 1. Environment Config (Workspace) 2. Local Config (Your Live Site)
       const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
-
+      
+      console.log("☁️ Initializing Firebase with Project ID:", config.projectId);
+      
       const firebaseApp = initializeApp(config);
       const firebaseAuth = getAuth(firebaseApp);
       const firestore = getFirestore(firebaseApp);
       
       setDb(firestore);
-      
-      if (typeof __app_id !== 'undefined') {
-        setAppId(__app_id);
-      }
+      if (typeof __app_id !== 'undefined') setAppId(__app_id);
 
-      // Auth Flow
       const initAuth = async () => {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(firebaseAuth, __initial_auth_token);
-        } else {
-          await signInAnonymously(firebaseAuth);
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+          } else {
+            // Anonymous sign-in is required for your live site!
+            await signInAnonymously(firebaseAuth);
+            console.log("👤 Anonymous Sign-in Successful");
+          }
+        } catch (authErr) {
+          console.error("❌ Auth Error:", authErr);
         }
       };
+      
       initAuth();
-
-      return onAuthStateChanged(firebaseAuth, (u) => setUser(u));
+      return onAuthStateChanged(firebaseAuth, (u) => {
+        console.log("🆔 Auth State Changed. User ID:", u?.uid || "Logged Out");
+        setUser(u);
+      });
     } catch (e) {
-      console.error("Firebase Init Error:", e);
+      console.error("❌ Firebase Setup Error:", e);
       setIsInitialLoad(false);
     }
   }, []);
 
-  // --- Persistence Effect (Real-time Sync) ---
+  // 2. Real-time Persistence (Read from Cloud)
   useEffect(() => {
     if (!user || !db) return;
+
+    const path = `/artifacts/${appId}/users/${user.uid}/project/current`;
+    console.log("📂 Listening for data at:", path);
 
     const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     
     const unsubscribe = onSnapshot(projectDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        console.log("✅ Cloud data found, updating local state...");
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
-        
         if (data.logs) {
           setLogsState(data.logs.map((l: any) => ({
             ...l,
             timestamp: l.timestamp?.toDate() || new Date(l.timestamp)
           })));
         }
+      } else {
+        console.log("ℹ️ No existing cloud project found. Starting fresh.");
       }
       setIsInitialLoad(false);
     }, (error) => {
-      console.error("Firestore sync error:", error);
+      console.error("❌ Firestore Permission/Sync Error:", error);
       setIsInitialLoad(false);
     });
 
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // --- Helper for updating cloud state ---
+  // 3. Sync to Cloud (Write to Cloud)
   const syncToCloud = async (newState: any) => {
-    if (!user || !db) return;
+    if (!user || !db) {
+      console.warn("⚠️ Cloud sync skipped: User not authenticated yet.");
+      return;
+    }
+    
     try {
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, newState, { merge: true });
+      console.log("💾 Saved to cloud:", Object.keys(newState));
     } catch (error) {
-      console.error("Error syncing to cloud:", error);
+      console.error("❌ Failed to save to cloud:", error);
     }
   };
 
-  // --- Wrapped Setters ---
+  if (!hasConfig) {
+    return <div className="p-20 text-center">Missing Firebase Configuration</div>;
+  }
+
   const value = {
     user,
     endpoints,
