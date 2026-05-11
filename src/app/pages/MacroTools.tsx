@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 
 // @ts-ignore - Resolving path to match project structure src/app/pages -> src/app/context
-import { useApp } from '../context/AppContext';
+import { useApp } from '../context/AppContext.tsx';
+import { UpgradeModal } from '../components/UpgradeModal';
 
 export default function MacroTools() {
   const navigate = useNavigate();
@@ -21,14 +22,21 @@ export default function MacroTools() {
   const selectedEndpoints = context?.selectedEndpoints || new Set();
   const macros = context?.macros || [];
   const setMacros = context?.setMacros || (() => {});
+  const isPro = context?.isPro;
 
   const [activeMacroId, setActiveMacroId] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const availableEndpoints = endpoints.filter((ep: any) => 
     selectedEndpoints.has(`${ep.method}:${ep.path}`)
   );
 
   const handleAddMacro = () => {
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     const newMacro = {
       id: Math.random().toString(36).substr(2, 9),
       name: 'new_macro_tool',
@@ -200,6 +208,12 @@ export default function MacroTools() {
             <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
+
+        <UpgradeModal 
+          isOpen={showUpgradeModal} 
+          onClose={() => setShowUpgradeModal(false)} 
+          featureName="Macro Tool Bundling" 
+        />
       </div>
     </div>
   );

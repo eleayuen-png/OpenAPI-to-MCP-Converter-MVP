@@ -76,6 +76,7 @@ interface AppContextType {
   setDeploymentInfo: (info: any | null) => void;
   piiMasking: boolean;
   setPiiMasking: (enabled: boolean) => void;
+  isPro: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
   isInitialLoad: boolean;
@@ -110,6 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [logs, setLogsState] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfoState] = useState<any | null>(null);
   const [piiMasking, setPiiMaskingState] = useState(false);
+  const [isPro, setIsProState] = useState(false);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
 
   const [db, setDb] = useState<any>(null);
@@ -172,6 +174,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
+        if (data.isPro !== undefined) setIsProState(data.isPro);
         if (data.targetBaseUrl) setTargetBaseUrlState(data.targetBaseUrl);
         
         if (data.logs) {
@@ -314,6 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
     piiMasking,
     setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
+    isPro,
     targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     isInitialLoad,
