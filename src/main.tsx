@@ -1,11 +1,12 @@
-import { Buffer } from 'buffer';
+import * as buffer from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate } from 'react-router';
 
 /**
- * 1. THE POLYFILL (Must be at the absolute top)
- * Provides Buffer support in the browser environment.
+ * 1. THE POLYFILL
+ * Ensures Buffer is available globally for packages that expect it.
+ * We use 'import * as buffer' to ensure compatibility with Vite's production build.
  */
 declare global {
   interface Window {
@@ -14,27 +15,28 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  window.Buffer = window.Buffer || Buffer;
+  window.Buffer = window.Buffer || buffer.Buffer;
 }
 
 /**
  * 2. IMPORTS
- * Added explicit .tsx and .css extensions to resolve build issues.
+ * Removing explicit extensions to allow the bundler to resolve the modules 
+ * based on the project configuration.
  */
 // @ts-ignore
-import Root from './app/pages/Root.tsx';
+import Root from './app/pages/Root';
 // @ts-ignore
-import Upload from './app/pages/Upload.tsx';
+import Upload from './app/pages/Upload';
 // @ts-ignore
-import Prune from './app/pages/Prune.tsx';
+import Prune from './app/pages/Prune';
 // @ts-ignore
-import MacroTools from './app/pages/MacroTools.tsx'; 
+import MacroTools from './app/pages/MacroTools'; 
 // @ts-ignore
-import Auth from './app/pages/Auth.tsx';
+import Auth from './app/pages/Auth';
 // @ts-ignore
-import Deploy from './app/pages/Deploy.tsx';
+import Deploy from './app/pages/Deploy';
 // @ts-ignore
-import Logs from './app/pages/Logs.tsx';
+import Logs from './app/pages/Logs';
 // @ts-ignore
 import './styles/theme.css'; 
 
