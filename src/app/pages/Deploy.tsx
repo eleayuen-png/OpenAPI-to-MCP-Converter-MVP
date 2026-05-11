@@ -16,9 +16,10 @@ import {
   Info
 } from 'lucide-react';
 
-// @ts-ignore - Reverting to relative path for better compatibility with current build environment
-import { useApp } from '../context/AppContext.tsx';
-import { UpgradeModal } from '../components/UpgradeModal.tsx';
+// @ts-ignore
+import { useApp } from '../context/AppContext';
+// @ts-ignore
+import { UpgradeModal } from '../components/UpgradeModal';
 
 // --- Helper Components ---
 
@@ -62,12 +63,8 @@ export function DeploymentPanel({
             placeholder="e.g., https://api.example.com/v1"
             className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
           />
-          <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-             <InfoIcon size={12} /> This is the real API address your proxy will talk to.
-          </p>
         </div>
 
-        {/* PII Masking Toggle */}
         <div className={`p-4 rounded-xl border transition-all ${piiMasking ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-800'}`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -125,7 +122,6 @@ export function DeploymentSuccess() {
   const serverUrl = deploymentInfo.serverUrl || '';
   
   const copyToClipboard = (text: string, setter: (val: boolean) => void) => {
-    // Robust copy fallback for iframe environments
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
@@ -140,11 +136,20 @@ export function DeploymentSuccess() {
     document.body.removeChild(textArea);
   };
 
-  const clineSnippet = JSON.stringify({
+  const cursorSnippet = JSON.stringify({
     mcpServers: {
-      "my-api": {
+      "mcp-studio-proxy": {
         "type": "sse",
         "url": serverUrl
+      }
+    }
+  }, null, 2);
+
+  const claudeConfig = JSON.stringify({
+    "mcpServers": {
+      "mcp-studio-proxy": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sse", serverUrl]
       }
     }
   }, null, 2);
@@ -191,12 +196,60 @@ export function DeploymentSuccess() {
         </div>
       </div>
 
-      {/* Tabs and Snippets omitted for brevity, same as previous version */}
+      <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+        <div className="flex border-b border-slate-200 dark:border-slate-800">
+          {(['cursor', 'cline', 'claude'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-4 text-sm font-semibold transition-all border-b-2 ${
+                activeTab === tab 
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            >
+              {tab === 'cursor' ? 'Cursor IDE' : tab === 'cline' ? 'Cline' : 'Claude Desktop'}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-[#141B41] dark:text-white flex items-center gap-2">
+              <Code className="w-5 h-5 text-blue-500" />
+              Configuration Snippet
+            </h3>
+            <button 
+              onClick={() => copyToClipboard(
+                activeTab === 'cursor' ? cursorSnippet : activeTab === 'cline' ? cursorSnippet : claudeConfig, 
+                setCopiedSnippet
+              )}
+              className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            >
+              {copiedSnippet ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedSnippet ? 'Copied to Clipboard' : 'Copy Snippet'}
+            </button>
+          </div>
+
+          <div className="bg-slate-900 rounded-2xl p-6 overflow-hidden relative group">
+            <pre className="text-blue-100 font-mono text-sm overflow-x-auto custom-scrollbar">
+              {activeTab === 'cursor' ? cursorSnippet : activeTab === 'cline' ? cursorSnippet : claudeConfig}
+            </pre>
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-start gap-3">
+            <Pointer className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              {activeTab === 'cursor' && "Open Cursor Settings > Models > MCP, click 'Add New MCP Server', choose 'SSE' as type, and paste the URL above."}
+              {activeTab === 'cline' && "Open Cline settings, navigate to the MCP section, and add a new SSE configuration with the URL provided."}
+              {activeTab === 'claude' && "Open your Claude Desktop configuration file and paste this JSON block into the 'mcpServers' section."}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-// --- Main Deploy Component ---
 
 export default function Deploy() {
   const navigate = useNavigate();
@@ -298,14 +351,5 @@ export default function Deploy() {
         )}
       </div>
     </div>
-  );
-}
-
-// Simple Info icon replacement
-function InfoIcon({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
-    </svg>
   );
 }
