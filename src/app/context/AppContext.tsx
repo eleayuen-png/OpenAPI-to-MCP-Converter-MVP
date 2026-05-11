@@ -9,10 +9,9 @@ import {
   signInWithCustomToken,
   GoogleAuthProvider,
   signInWithPopup,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signOut,
   linkWithCredential,
+  signInWithCredential,
   User
 } from 'firebase/auth';
 // @ts-ignore
@@ -27,10 +26,26 @@ import {
 
 import type { Endpoint } from '../components/EndpointList';
 
+// --- Global Declarations ---
 declare global {
   const __firebase_config: string | undefined;
   const __app_id: string | undefined;
   const __initial_auth_token: string | undefined;
+}
+
+export interface MacroTool {
+  id: string;
+  name: string;
+  description: string;
+  steps: Array<{ method: string; path: string; }>;
+}
+
+export interface ApiCredential {
+  id: string;
+  name: string;
+  type: 'bearer' | 'api-key' | 'basic';
+  key: string;
+  createdAt: Date;
 }
 
 export interface LogEntry {
@@ -46,28 +61,29 @@ export interface LogEntry {
 
 interface AppContextType {
   user: User | null;
-  endpoints: any[];
-  setEndpoints: (val: any[]) => void;
+  endpoints: Endpoint[];
+  setEndpoints: (endpoints: Endpoint[]) => void;
   selectedEndpoints: Set<string>;
-  setSelectedEndpoints: (val: Set<string>) => void;
-  macros: any[];
-  setMacros: (val: any[]) => void;
-  credentials: any[];
-  setCredentials: (val: any[]) => void;
+  setSelectedEndpoints: (endpoints: Set<string>) => void;
+  macros: MacroTool[];
+  setMacros: (tools: MacroTool[]) => void;
+  credentials: ApiCredential[];
+  setCredentials: (credentials: ApiCredential[]) => void;
   logs: LogEntry[];
   addLog: (log: Omit<LogEntry, 'id' | 'timestamp'>) => Promise<void>;
-  deploymentInfo: any;
-  setDeploymentInfo: (val: any) => void;
+  setLogs: (logs: LogEntry[]) => void;
+  deploymentInfo: { serverUrl: string; apiKey: string; piiMasking?: boolean } | null;
+  setDeploymentInfo: (info: any | null) => void;
   piiMasking: boolean;
-  setPiiMasking: (val: boolean) => void;
+  setPiiMasking: (enabled: boolean) => void;
   targetBaseUrl: string;
-  setTargetBaseUrl: (val: string) => void;
+  setTargetBaseUrl: (url: string) => void;
   isInitialLoad: boolean;
-  // New Auth Functions
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
+// 🚀 YOUR FIREBASE CONFIGURATION (Verified)
 const localFirebaseConfig = {
   apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
   authDomain: "mcp-studio-22971.firebaseapp.com",
@@ -83,12 +99,15 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Use a ref to track if we are currently loading from cloud to prevent feedback loops
   const isHydrating = useRef(true);
 
-  const [endpoints, setEndpointsState] = useState<any[]>([]);
+  // App State
+  const [endpoints, setEndpointsState] = useState<Endpoint[]>([]);
   const [selectedEndpoints, setSelectedEndpointsState] = useState<Set<string>>(new Set());
-  const [macros, setMacrosState] = useState<any[]>([]);
-  const [credentials, setCredentialsState] = useState<any[]>([]);
+  const [macros, setMacrosState] = useState<MacroTool[]>([]);
+  const [credentials, setCredentialsState] = useState<ApiCredential[]>([]);
   const [logs, setLogsState] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfoState] = useState<any | null>(null);
   const [piiMasking, setPiiMaskingState] = useState(false);
@@ -98,9 +117,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<any>(null);
   const [appId, setAppId] = useState('mcp-studio-v1');
 
+  // 1. Initialize Firebase & Auth
   useEffect(() => {
     try {
       const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
+      console.log("☁️ Initializing Firebase...");
+      
       const firebaseApp = initializeApp(config);
       const firebaseAuth = getAuth(firebaseApp);
       const firestore = getFirestore(firebaseApp);
@@ -110,30 +132,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (typeof __app_id !== 'undefined') setAppId(__app_id);
 
       const initAuth = async () => {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(firebaseAuth, __initial_auth_token);
-        } else if (!firebaseAuth.currentUser) {
-          await signInAnonymously(firebaseAuth);
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+          } else if (!firebaseAuth.currentUser) {
+            await signInAnonymously(firebaseAuth);
+            console.log("👤 Anonymous Sign-in Successful");
+          }
+        } catch (authErr) {
+          console.error("❌ Auth Error:", authErr);
         }
       };
       
       initAuth();
       return onAuthStateChanged(firebaseAuth, (u) => {
+        console.log("🆔 User ID:", u?.uid || "Logged Out");
         setUser(u);
       });
     } catch (e) {
-      console.error(e);
+      console.error("❌ Firebase Setup Error:", e);
       setIsInitialLoad(false);
     }
   }, []);
 
+  // 2. Real-time Persistence (Read from Cloud)
   useEffect(() => {
     if (!user || !db) return;
+
     const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
+    
     const unsubscribe = onSnapshot(projectDocRef, (docSnap) => {
-      isHydrating.current = true;
+      isHydrating.current = true; 
+      
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
@@ -141,64 +174,125 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.targetBaseUrl) setTargetBaseUrlState(data.targetBaseUrl);
+        
         if (data.logs) {
-          setLogsState(data.logs.map((l: any) => ({
-            ...l,
-            timestamp: l.timestamp?.toDate ? l.timestamp.toDate() : new Date(l.timestamp)
-          })));
+          setLogsState(data.logs.map((l: any) => {
+            let parsedDate = new Date();
+            if (l.timestamp) {
+              if (typeof l.timestamp.toDate === 'function') {
+                parsedDate = l.timestamp.toDate();
+              } else {
+                parsedDate = new Date(l.timestamp);
+              }
+            }
+            return { ...l, timestamp: parsedDate };
+          }));
         }
       }
+      
       setIsInitialLoad(false);
       setTimeout(() => { isHydrating.current = false; }, 100);
-    }, () => setIsInitialLoad(false));
+    }, (error) => {
+      console.error("❌ Firestore Sync Error:", error);
+      setIsInitialLoad(false);
+      isHydrating.current = false;
+    });
+
     return () => unsubscribe();
   }, [user, db, appId]);
 
+  // 3. Sync to Cloud (Write to Cloud)
   const syncToCloud = async (newState: any) => {
     if (!user || !db || isHydrating.current) return;
+    
     try {
       const cleanData = { ...newState };
-      Object.keys(cleanData).forEach(key => { if (cleanData[key] === undefined) cleanData[key] = null; });
+      Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === undefined) cleanData[key] = null;
+      });
+
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, cleanData, { merge: true });
-    } catch (e) { console.error(e); }
+      console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
+    } catch (error) {
+      console.error("❌ Cloud Save Failed:", error);
+    }
   };
 
+  // 4. Enhanced Logging logic (Sub-collection)
   const addLog = async (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     if (!user || !db) return;
-    const logData = { ...log, timestamp: new Date(), id: Math.random().toString(36).substr(2, 9) };
+    
+    const logData = { 
+      ...log, 
+      timestamp: new Date(), 
+      id: Math.random().toString(36).substr(2, 9) 
+    };
+    
     setLogsState(prev => [logData, ...prev].slice(0, 50));
+
     try {
       const logsColRef = collection(db, 'artifacts', appId, 'users', user.uid, 'logs');
       await addDoc(logsColRef, logData);
       syncToCloud({ logs: [logData, ...logs].slice(0, 10) });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("❌ Failed to save enhanced log:", e);
+    }
   };
 
   const loginWithGoogle = async () => {
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
-      // If anonymous, link the account so they don't lose their project
+      // 1. Trigger the popup to get the Google Credential
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+
+      if (!credential) throw new Error("Could not retrieve Google credential.");
+
+      // 2. If the user is currently anonymous, try to link the account
       if (user?.isAnonymous) {
-        await linkWithCredential(user, GoogleAuthProvider.credentialFromResult(await signInWithPopup(auth, provider))!);
+        try {
+          await linkWithCredential(user, credential);
+          console.log("🔗 Guest account successfully linked to Google.");
+        } catch (linkError: any) {
+          // 3. HANDLE CONFLICT: If Google account already exists, standard link fails
+          if (linkError.code === 'auth/credential-already-in-use') {
+            console.warn("⚠️ Google account already exists. Switching to that account instead of linking.");
+            // Log in as that existing user
+            await signInWithCredential(auth, credential);
+            
+            await addLog({
+              level: 'info',
+              endpoint: 'Auth',
+              statusCode: 200,
+              message: "Signed in to existing Google account. Guest data was not merged."
+            });
+          } else {
+            throw linkError;
+          }
+        }
       } else {
-        await signInWithPopup(auth, provider);
+        // Already logged in or not anonymous, result from signInWithPopup is enough
+        console.log("👤 Standard Google Sign-in complete.");
       }
     } catch (e: any) {
       console.error("Auth Error:", e);
       
-      // USER-FRIENDLY ERROR LOGIC
       if (e.code === 'auth/unauthorized-domain') {
-        // Since we can't use alert(), we log a clear instruction
         console.error("🛑 ACTION REQUIRED: Add this domain to your Firebase Authorized Domains list in the Firebase Console.");
-        
-        // You could also set a global error state here to show a toast/modal
-        addLog({
+        await addLog({
           level: 'error',
           endpoint: 'Auth',
           statusCode: 403,
           message: "Sign-in failed: Domain not authorized in Firebase Console."
+        });
+      } else {
+        await addLog({
+          level: 'error',
+          endpoint: 'Auth',
+          statusCode: 500,
+          message: `Authentication failed: ${e.message}`
         });
       }
     }
@@ -206,24 +300,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     if (!auth) return;
-    await signOut(auth);
-    window.location.reload(); // Refresh to clear state and re-init anonymous session
+    try {
+      await signOut(auth);
+      // Reload to re-initialize an anonymous session
+      window.location.reload();
+    } catch (e) {
+      console.error("Logout Error:", e);
+    }
   };
 
-  const value: AppContextType = {
+  const value = {
     user,
     endpoints,
-    setEndpoints: (val: any[]) => { setEndpointsState(val); syncToCloud({ endpoints: val }); },
+    setEndpoints: (val: Endpoint[]) => { setEndpointsState(val); syncToCloud({ endpoints: val }); },
     selectedEndpoints,
     setSelectedEndpoints: (val: Set<string>) => { setSelectedEndpointsState(val); syncToCloud({ selectedEndpoints: Array.from(val) }); },
     macros,
-    setMacros: (val: any[]) => { setMacrosState(val); syncToCloud({ macros: val }); },
+    setMacros: (val: MacroTool[]) => { setMacrosState(val); syncToCloud({ macros: val }); },
     credentials,
-    setCredentials: (val: any[]) => { setCredentialsState(val); syncToCloud({ credentials: val }); },
+    setCredentials: (val: ApiCredential[]) => { setCredentialsState(val); syncToCloud({ credentials: val }); },
     logs,
     addLog,
+    setLogs: (val: any) => setLogsState(val),
     deploymentInfo,
-    setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val }); },
+    setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
     piiMasking,
     setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
     targetBaseUrl,
@@ -235,7 +335,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={value}>
-      {!isInitialLoad ? children : <div className="min-h-screen flex items-center justify-center bg-slate-950"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div></div>}
+      {!isInitialLoad && children}
+      {isInitialLoad && (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19]">
+          <div className="flex flex-col items-center gap-4 text-center p-8">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <p className="text-slate-900 dark:text-white font-semibold">Restoring your workspace</p>
+              <p className="text-slate-500 text-sm">Synchronizing with MCP Studio Cloud...</p>
+            </div>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 }
