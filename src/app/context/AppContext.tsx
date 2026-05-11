@@ -5,9 +5,9 @@ export interface MacroTool {
   id: string;
   name: string;
   description: string;
-  endpoints: Array<{
-    endpointKey: string;
-    order: number;
+  steps: Array<{
+    method: string;
+    path: string;
   }>;
 }
 
@@ -35,8 +35,8 @@ interface AppContextType {
   setEndpoints: (endpoints: Endpoint[]) => void;
   selectedEndpoints: Set<string>;
   setSelectedEndpoints: (endpoints: Set<string>) => void;
-  macroTools: MacroTool[];
-  setMacroTools: (tools: MacroTool[]) => void;
+  macros: MacroTool[];
+  setMacros: (tools: MacroTool[]) => void;
   credentials: ApiCredential[];
   setCredentials: (credentials: ApiCredential[]) => void;
   logs: LogEntry[];
@@ -50,7 +50,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [selectedEndpoints, setSelectedEndpoints] = useState<Set<string>>(new Set());
-  const [macroTools, setMacroTools] = useState<MacroTool[]>([]);
+  const [macros, setMacros] = useState<MacroTool[]>([]);
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfo] = useState<{ serverUrl: string; apiKey: string } | null>(null);
@@ -62,8 +62,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setEndpoints,
         selectedEndpoints,
         setSelectedEndpoints,
-        macroTools,
-        setMacroTools,
+        macros,
+        setMacros,
         credentials,
         setCredentials,
         logs,
