@@ -52,6 +52,9 @@ export function DeploymentPanel({
           placeholder="e.g., https://api.example.com/v1"
           className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
         />
+        <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+          <Info size={12} /> This is the real API address your proxy will talk to.
+        </p>
       </div>
 
       <button
@@ -73,6 +76,7 @@ export function DeploymentSuccess() {
 
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude'>('cursor');
   
   if (!deploymentInfo) return null;
 
@@ -83,6 +87,15 @@ export function DeploymentSuccess() {
     setter(true);
     setTimeout(() => setter(false), 2000);
   };
+
+  const clineSnippet = JSON.stringify({
+    mcpServers: {
+      "my-api": {
+        "type": "sse",
+        "url": serverUrl
+      }
+    }
+  }, null, 2);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -121,63 +134,158 @@ export function DeploymentSuccess() {
 
       <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 transition-colors shadow-sm">
         <h3 className="text-2xl font-semibold text-[#141B41] dark:text-white mb-6 tracking-tight flex items-center gap-2">
-           <Pointer className="text-blue-500" /> Connect to Cursor IDE
+           Client Configuration Snippets
         </h3>
-        
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Follow these steps to enable your tools in Cursor:</p>
-            <button 
-              onClick={() => copyToClipboard(serverUrl, setCopiedSnippet)}
-              className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
-            >
-              {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
-              {copiedSnippet ? 'Copied URL!' : 'Copy Server URL'}
-            </button>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">1</div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
-                  Open Cursor Settings using <kbd className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-xs font-mono">⌘ + Shift + J</kbd>
-                </p>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">2</div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
-                  Navigate to <strong>Features</strong> &gt; <strong>MCP</strong> in the sidebar.
-                </p>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">3</div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
-                  Click <strong>+ Add New MCP Server</strong>.
-                </p>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">4</div>
-                <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
-                  Set Type to <strong className="text-blue-500">sse</strong>, Name to <strong>my-api</strong>, and paste the URL.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
-              <h5 className="text-xs font-bold uppercase text-slate-400 mb-4 tracking-widest">Preview URL</h5>
-              <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg p-4 font-mono text-xs text-blue-600 dark:text-blue-400 break-all">
-                {serverUrl}
-              </div>
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-lg">
-                <p className="text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2">
-                   <ExternalLink size={14} className="shrink-0 mt-0.5" />
-                   Once connected, just ask Cursor: "Use the my-api tool to fetch the pet inventory."
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <button
+            onClick={() => setActiveTab('cursor')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'cursor' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Pointer className="w-4 h-4" /> Cursor IDE
+          </button>
+          <button
+            onClick={() => setActiveTab('cline')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'cline' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Code className="w-4 h-4" /> Cline (VS Code)
+          </button>
+          <button
+            onClick={() => setActiveTab('claude')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'claude' ? 'bg-[#141B41] text-white dark:bg-blue-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
+          >
+            <Terminal className="w-4 h-4" /> Claude Desktop
+          </button>
         </div>
+        
+        {/* Cursor Tab */}
+        {activeTab === 'cursor' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Follow these steps to enable your tools in Cursor:</p>
+              <button 
+                onClick={() => copyToClipboard(serverUrl, setCopiedSnippet)}
+                className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+              >
+                {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                {copiedSnippet ? 'Copied URL!' : 'Copy Server URL'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">1</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Open Cursor Settings using <kbd className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-xs font-mono">⌘ + Shift + J</kbd>
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">2</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Navigate to <strong>Features</strong> &gt; <strong>MCP</strong> in the sidebar.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">3</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Click <strong>+ Add New MCP Server</strong>.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">4</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Set Type to <strong className="text-blue-500">sse</strong>, Name to <strong>my-api</strong>, and paste the URL.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+                <h5 className="text-xs font-bold uppercase text-slate-400 mb-4 tracking-widest">Preview URL</h5>
+                <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg p-4 font-mono text-xs text-blue-600 dark:text-blue-400 break-all">
+                  {serverUrl}
+                </div>
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-lg">
+                  <p className="text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2">
+                    <ExternalLink size={14} className="shrink-0 mt-0.5" />
+                    Once connected, just ask Cursor: "Use the my-api tool to fetch the pet inventory."
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cline Tab */}
+        {activeTab === 'cline' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <p className="text-slate-600 dark:text-slate-400 text-sm">Follow these steps to enable your tools in Cline:</p>
+              <button 
+                onClick={() => copyToClipboard(clineSnippet, setCopiedSnippet)}
+                className="text-sm flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#141B41] dark:text-slate-300 rounded-xl font-medium transition-colors border border-slate-200 dark:border-slate-700"
+              >
+                {copiedSnippet ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                {copiedSnippet ? 'Copied JSON!' : 'Copy JSON'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">1</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Open VS Code and click the <strong>Cline</strong> extension icon.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">2</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Click the <strong>MCP Servers</strong> icon (the plug icon) at the top of the chat panel.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">3</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Click <strong>Edit Servers Configuration</strong> to open your settings file.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold">4</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 pt-1">
+                    Paste the JSON snippet from the right directly into the file and save.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+                <h5 className="text-xs font-bold uppercase text-slate-400 mb-4 tracking-widest">Configuration Snippet</h5>
+                <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg p-4 font-mono text-xs text-blue-600 dark:text-blue-400 break-all overflow-auto whitespace-pre-wrap">
+                  {clineSnippet}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Claude Tab */}
+        {activeTab === 'claude' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-900/50 rounded-xl p-6">
+              <h4 className="text-lg font-semibold text-amber-800 dark:text-amber-400 mb-3 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" /> Native Remote SSE Support Pending
+              </h4>
+              <p className="text-sm text-amber-700 dark:text-amber-300 leading-relaxed mb-4">
+                The Claude Desktop application strictly requires a local <code>stdio</code> bridge script to connect to a remote SSE server at this time. Native remote SSE configuration (like the ones used in Cursor and Cline) is expected in an upcoming Anthropic update.
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 leading-relaxed">
+                For the best out-of-the-box experience right now, we highly recommend using <strong>Cursor IDE</strong> or <strong>Cline</strong> to test and run your newly generated proxy server!
+              </p>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -225,7 +333,7 @@ export default function Deploy() {
           apiKey: apiKeyToUse,
           endpoints: selectedEndpointDetails,
           baseUrl: baseUrl.trim(),
-          macros: macros || []
+          macros: macros || [] // Ensure we send an empty array if no macros exist
         })
       });
 
