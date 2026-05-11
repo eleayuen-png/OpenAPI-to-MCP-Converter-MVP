@@ -185,8 +185,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         await signInWithPopup(auth, provider);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Auth Error:", e);
+      
+      // USER-FRIENDLY ERROR LOGIC
+      if (e.code === 'auth/unauthorized-domain') {
+        // Since we can't use alert(), we log a clear instruction
+        console.error("🛑 ACTION REQUIRED: Add this domain to your Firebase Authorized Domains list in the Firebase Console.");
+        
+        // You could also set a global error state here to show a toast/modal
+        addLog({
+          level: 'error',
+          endpoint: 'Auth',
+          statusCode: 403,
+          message: "Sign-in failed: Domain not authorized in Firebase Console."
+        });
+      }
     }
   };
 
