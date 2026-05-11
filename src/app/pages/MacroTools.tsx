@@ -9,14 +9,14 @@ import {
   Layers
 } from 'lucide-react';
 
-// @ts-ignore - Resolving potential path issues in build environment
+// @ts-ignore - Resolving path to match project structure src/app/pages -> src/app/context
 import { useApp } from '../context/AppContext';
 
 export default function MacroTools() {
   const navigate = useNavigate();
   
   // Safe context extraction with fallbacks
-  const context = useApp();
+  const context = useApp() as any;
   const endpoints = context?.endpoints || [];
   const selectedEndpoints = context?.selectedEndpoints || new Set();
   const macros = context?.macros || [];
@@ -24,7 +24,6 @@ export default function MacroTools() {
 
   const [activeMacroId, setActiveMacroId] = useState<string | null>(null);
 
-  // Filter only the endpoints the user previously kept in the "Prune" step
   const availableEndpoints = endpoints.filter((ep: any) => 
     selectedEndpoints.has(`${ep.method}:${ep.path}`)
   );
@@ -81,11 +80,7 @@ export default function MacroTools() {
           
           {/* Left: Macro List */}
           <div className="lg:col-span-1 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Your Macros</h3>
-              <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{macros.length}</span>
-            </div>
-            
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-1">Your Macros</h3>
             {macros.map((macro: any) => (
               <button
                 key={macro.id}
@@ -98,11 +93,11 @@ export default function MacroTools() {
               >
                 <div className="flex items-center gap-3">
                   <Zap className={`h-4 w-4 ${activeMacroId === macro.id ? 'text-blue-500' : 'text-slate-400'}`} />
-                  <span className="font-medium truncate text-sm">{macro.name}</span>
+                  <span className="font-medium truncate">{macro.name}</span>
                 </div>
                 <button 
                   onClick={(e) => { e.stopPropagation(); removeMacro(macro.id); }}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -110,54 +105,48 @@ export default function MacroTools() {
             ))}
             <button
               onClick={handleAddMacro}
-              className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2 font-medium"
+              className="w-full py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2"
             >
-              <Plus className="h-4 w-4" /> Create New Macro
+              <Plus className="h-4 w-4" /> New Macro
             </button>
           </div>
 
           {/* Right: Macro Editor */}
           <div className="lg:col-span-2">
             {activeMacroId ? (
-              <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
                 {macros.filter((m: any) => m.id === activeMacroId).map((macro: any) => (
-                  <div key={macro.id}>
-                    <div className="p-6 border-b border-slate-100 dark:border-slate-800 space-y-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tool Name</label>
-                        <input 
-                          className="w-full text-xl font-bold bg-transparent border-none focus:ring-0 p-0 text-[#141B41] dark:text-white"
-                          value={macro.name}
-                          onChange={(e) => setMacros(macros.map((m: any) => m.id === macro.id ? {...m, name: e.target.value.replace(/[^a-zA-Z0-9_]/g, '_')} : m))}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">AI Instruction</label>
-                        <input 
-                          className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-slate-600 dark:text-slate-400"
-                          placeholder="e.g. Use this to create a user and assign them to a team."
-                          value={macro.description}
-                          onChange={(e) => setMacros(macros.map((m: any) => m.id === macro.id ? {...m, description: e.target.value} : m))}
-                        />
-                      </div>
+                  <div key={macro.id} className="space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tool Name (for AI)</label>
+                      <input 
+                        className="w-full text-2xl font-bold bg-transparent border-none focus:ring-0 p-0 text-[#141B41] dark:text-white"
+                        value={macro.name}
+                        onChange={(e) => setMacros(macros.map((m: any) => m.id === macro.id ? {...m, name: e.target.value.replace(/\s+/g, '_')} : m))}
+                      />
+                      <label className="block text-xs font-bold text-slate-400 uppercase mt-4 mb-2">Instructions for AI</label>
+                      <textarea 
+                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                        rows={2}
+                        value={macro.description}
+                        onChange={(e) => setMacros(macros.map((m: any) => m.id === macro.id ? {...m, description: e.target.value} : m))}
+                      />
                     </div>
 
-                    <div className="p-6 bg-slate-50/30 dark:bg-black/10">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
-                         Execution Sequence
-                      </h4>
+                    <div className="space-y-3">
+                      <label className="block text-xs font-bold text-slate-400 uppercase">Execution Sequence</label>
                       {macro.steps.length === 0 ? (
-                        <div className="py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center text-slate-400 text-sm">
-                          Add endpoints from the list below to build your sequence.
+                        <div className="p-8 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-xl text-center text-slate-400 text-sm">
+                          Click endpoints on the right to add them to this sequence.
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                           {macro.steps.map((step: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-4 bg-white dark:bg-[#111827] p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm group">
-                              <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-lg">{idx + 1}</span>
-                              <span className="text-[10px] font-black uppercase px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded tracking-tighter">{step.method}</span>
-                              <span className="flex-1 text-sm font-mono text-slate-600 dark:text-slate-300 truncate">{step.path}</span>
-                              <button onClick={() => removeStep(macro.id, idx)} className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 group">
+                              <span className="w-6 h-6 flex items-center justify-center bg-blue-500 text-white text-[10px] font-bold rounded-full">{idx + 1}</span>
+                              <span className="text-xs font-bold px-2 py-0.5 bg-blue-100 text-blue-700 rounded uppercase">{step.method}</span>
+                              <span className="flex-1 font-mono text-xs truncate">{step.path}</span>
+                              <button onClick={() => removeStep(macro.id, idx)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100">
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
@@ -166,20 +155,18 @@ export default function MacroTools() {
                       )}
                     </div>
 
-                    <div className="p-6">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-4">Available Pruned Endpoints</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Available Pruned Endpoints</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {availableEndpoints.map((ep: any) => (
                           <button
                             key={`${ep.method}:${ep.path}`}
                             onClick={() => addStepToMacro(macro.id, ep)}
-                            className="flex items-center gap-3 p-3 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl hover:border-blue-400 transition-all text-left shadow-sm group"
+                            className="flex items-center gap-2 p-2.5 text-left text-xs bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 rounded-lg hover:border-blue-400 transition-colors"
                           >
-                            <Plus className="w-4 h-4 text-blue-500 group-hover:scale-125 transition-transform" />
-                            <div>
-                                <div className="text-[10px] font-bold text-blue-600 uppercase leading-none mb-1">{ep.method}</div>
-                                <div className="text-xs font-mono text-slate-600 dark:text-slate-400 truncate">{ep.path}</div>
-                            </div>
+                            <Plus className="h-3 w-3 text-blue-500" />
+                            <span className="font-bold text-blue-600 uppercase w-8">{ep.method}</span>
+                            <span className="truncate">{ep.path}</span>
                           </button>
                         ))}
                       </div>
@@ -188,9 +175,9 @@ export default function MacroTools() {
                 ))}
               </div>
             ) : (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-12 bg-slate-50/50 dark:bg-slate-900/20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
+              <div className="h-full flex flex-col items-center justify-center p-12 bg-slate-50/50 dark:bg-slate-900/20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
                 <Layers className="h-12 w-12 mb-4 opacity-20" />
-                <p className="font-medium">Select a macro to start bundling</p>
+                <p>Select or create a macro to start bundling.</p>
               </div>
             )}
           </div>
@@ -199,18 +186,18 @@ export default function MacroTools() {
         <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors">
           <button
             onClick={() => navigate('/prune')}
-            className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white transition-colors font-medium"
+            className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white transition-colors font-medium group"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             Back to Pruning
           </button>
           
           <button
             onClick={() => navigate('/auth')}
-            className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg"
+            className="flex items-center gap-2 px-8 py-2.5 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl hover:opacity-90 transition-all font-medium shadow-lg shadow-blue-900/10 active:scale-95 group"
           >
             Continue to Auth
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
       </div>

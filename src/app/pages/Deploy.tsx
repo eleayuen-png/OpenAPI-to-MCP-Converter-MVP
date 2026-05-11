@@ -13,8 +13,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-// @ts-ignore - Using the relative path that successfully resolved in MacroTools
-import { useApp } from '../../context/AppContext';
+// @ts-ignore - Resolving path to reach the context folder from pages directory
+import { useApp } from '../context/AppContext';
 
 // --- Helper Components ---
 
@@ -52,9 +52,6 @@ export function DeploymentPanel({
           placeholder="e.g., https://api.example.com/v1"
           className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
         />
-        <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-          <Info size={12} /> This is the real API address your proxy will talk to.
-        </p>
       </div>
 
       <button
@@ -228,7 +225,7 @@ export default function Deploy() {
           apiKey: apiKeyToUse,
           endpoints: selectedEndpointDetails,
           baseUrl: baseUrl.trim(),
-          macros: macros || [] // Ensure we send an empty array if no macros exist
+          macros: macros || []
         })
       });
 
