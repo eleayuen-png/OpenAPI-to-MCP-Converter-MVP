@@ -1,16 +1,15 @@
 import { Buffer } from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// CHANGE: Imported HashRouter instead of BrowserRouter
 import { HashRouter, Routes, Route, Navigate } from 'react-router';
 
 /**
  * 1. THE POLYFILL (Must be at the absolute top)
- * Required for browser-based libraries like @apidevtools/swagger-parser.
+ * Provides Buffer support in the browser environment.
  */
 declare global {
   interface Window {
-    Buffer: typeof Buffer;
+    Buffer: any;
   }
 }
 
@@ -20,27 +19,27 @@ if (typeof window !== 'undefined') {
 
 /**
  * 2. IMPORTS
+ * Added explicit .tsx and .css extensions to resolve build issues.
  */
 // @ts-ignore
-import Root from './app/pages/Root';
+import Root from './app/pages/Root.tsx';
 // @ts-ignore
-import Upload from './app/pages/Upload';
+import Upload from './app/pages/Upload.tsx';
 // @ts-ignore
-import Prune from './app/pages/Prune';
+import Prune from './app/pages/Prune.tsx';
 // @ts-ignore
-import MacroTools from './app/pages/MacroTools'; 
+import MacroTools from './app/pages/MacroTools.tsx'; 
 // @ts-ignore
-import Auth from './app/pages/Auth';
+import Auth from './app/pages/Auth.tsx';
 // @ts-ignore
-import Deploy from './app/pages/Deploy';
+import Deploy from './app/pages/Deploy.tsx';
 // @ts-ignore
-import Logs from './app/pages/Logs';
+import Logs from './app/pages/Logs.tsx';
 // @ts-ignore
 import './styles/theme.css'; 
 
 /**
  * 3. RENDERING & ROUTING
- * Using HashRouter to ensure compatibility with GitHub Pages
  */
 const container = document.getElementById('root');
 
@@ -51,19 +50,12 @@ if (container) {
       <HashRouter>
         <Routes>
           <Route path="/" element={<Root />}>
-            {/* Landing/Step 1 */}
             <Route index element={<Upload />} />
-            
-            {/* Wizard Steps */}
             <Route path="/prune" element={<Prune />} />
             <Route path="/macro-tools" element={<MacroTools />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/deploy" element={<Deploy />} />
-            
-            {/* Utilities */}
             <Route path="/logs" element={<Logs />} />
-
-            {/* Safety Catch-all: Redirects any unknown route back to Upload */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
