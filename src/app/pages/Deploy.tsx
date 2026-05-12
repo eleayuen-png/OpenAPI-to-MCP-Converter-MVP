@@ -5,6 +5,10 @@ import {
   onAuthStateChanged, 
   signInAnonymously, 
   signInWithCustomToken,
+  GoogleAuthProvider,
+  signInWithPopup,
+  linkWithCredential,
+  signInWithCredential,
   Auth,
   User
 } from 'firebase/auth';
@@ -119,39 +123,57 @@ export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean
   if (!isOpen) return null;
 
   const handleUpgradeClick = async () => {
+    // If they are anonymous, force them to create a permanent account first!
     if (user?.isAnonymous && loginWithGoogle) {
       await loginWithGoogle();
       return;
     }
-    const userId = user?.uid || 'guest-session';
-    const stripePaymentLink = `https://buy.stripe.com/test_6oU00jbfRcjV2Vk97Sew800?client_reference_id=${userId}`;
+
+    // Redirect to the Stripe checkout
+    const stripePaymentLink = `https://buy.stripe.com/test_6oU00jbfRcjV2Vk97Sew800?client_reference_id=${user?.uid}`;
     window.location.href = stripePaymentLink;
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#111827] rounded-3xl w-full max-w-md p-8 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
-        <div className="flex justify-between items-start mb-6">
-          <div className="w-12 h-12 bg-blue-900/20 rounded-2xl flex items-center justify-center">
-            <Zap className="h-6 w-6 text-blue-400 fill-blue-400" />
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-            <X className="h-5 w-5 text-slate-400" />
-          </button>
-        </div>
-        <h3 className="text-2xl font-bold text-[#141B41] dark:text-white mb-2 tracking-tight">Upgrade to Pro</h3>
-        <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-          The <span className="font-semibold text-[#141B41] dark:text-slate-200">{featureName}</span> feature is exclusive to MCP Studio Pro users.
-        </p>
+      <div className="bg-white dark:bg-[#111827] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-300">
         
-        <button 
-          onClick={handleUpgradeClick}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all group"
-        >
-          {user?.isAnonymous ? 'Sign in to Upgrade' : 'Upgrade Now — $19/mo'}
-          <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-        </button>
-        <p className="text-center text-[10px] text-slate-500 mt-4 uppercase tracking-widest font-bold">Secure payment via Stripe</p>
+        <div className="relative bg-gradient-to-br from-blue-600 to-indigo-800 p-8 text-center overflow-hidden">
+          <div className="absolute top-4 right-4 z-10">
+            <button onClick={onClose} className="p-2 bg-black/20 hover:bg-black/40 rounded-full text-white/80 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="relative z-10 w-16 h-16 mx-auto bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-4 border border-white/30 shadow-xl">
+            <Shield className="h-8 w-8 text-white" />
+          </div>
+          
+          <h2 className="relative z-10 text-2xl font-bold text-white mb-2 tracking-tight">
+            {user?.isAnonymous ? "Sign in to unlock Pro features" : `Unlock ${featureName}`}
+          </h2>
+          <p className="relative z-10 text-blue-100 text-sm max-w-xs mx-auto">
+            {user?.isAnonymous 
+              ? "Create an account to save your config and access enterprise tools."
+              : "Upgrade to MCP Studio Pro to empower your AI agents with advanced enterprise features."}
+          </p>
+
+          <div className="absolute top-0 left-0 w-full h-full opacity-30">
+            <div className="absolute top-[-50%] left-[-20%] w-64 h-64 bg-blue-400 rounded-full mix-blend-overlay filter blur-3xl"></div>
+            <div className="absolute bottom-[-50%] right-[-20%] w-64 h-64 bg-purple-400 rounded-full mix-blend-overlay filter blur-3xl"></div>
+          </div>
+        </div>
+
+        <div className="p-8">
+          <button
+            onClick={handleUpgradeClick}
+            className="w-full py-3.5 bg-[#141B41] dark:bg-blue-600 hover:bg-[#1a2352] dark:hover:bg-blue-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            {user?.isAnonymous ? 'Sign in with Google' : 'Upgrade to Pro - $19/mo'}
+            <Zap className="h-4 w-4" />
+          </button>
+          <p className="text-center text-xs text-slate-400 mt-4">Secure authentication and payment logic.</p>
+        </div>
       </div>
     </div>
   );
@@ -372,9 +394,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
   );
 }
 
-// --- MAIN DEPLOY PAGE ---
-
-export function Deploy() {
+export function DeployPage() {
   const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, targetBaseUrl, setTargetBaseUrl, user } = useApp();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
@@ -399,8 +419,7 @@ export function Deploy() {
       setPiiMasking(!!piiMasking);
       setTargetBaseUrl(baseUrl.trim());
       
-      // 🚩 FIX: Pointing to your NEW Oregon Render URL
-      const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/deploy', {
+      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -468,8 +487,7 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Wait for Firebase to restore any existing session before proceeding
-        await auth.authStateReady();
+        await auth.authStateReady(); // Wait for session restoration
         
         if (!auth.currentUser) {
           if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -488,6 +506,30 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
+
+  const loginWithGoogle = async () => {
+    if (!auth) return;
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential) throw new Error("Could not retrieve Google credential.");
+      
+      if (user?.isAnonymous) {
+        try {
+          await linkWithCredential(user, credential);
+        } catch (linkError: any) {
+          if (linkError.code === 'auth/credential-already-in-use') {
+            await signInWithCredential(auth, credential);
+          } else {
+            throw linkError;
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error("Auth Error:", e);
+    }
+  };
 
   useEffect(() => {
     if (!user || !db) return;
@@ -570,7 +612,8 @@ export default function App() {
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     syncing, 
     user, 
-    resetWorkspace 
+    resetWorkspace,
+    loginWithGoogle
   };
 
   if (isInitialLoad) {
@@ -585,7 +628,7 @@ export default function App() {
   return (
     <AppContext.Provider value={contextValue}>
        <div className="min-h-screen bg-[#020617] text-slate-200">
-         <Deploy />
+         <DeployPage />
        </div>
     </AppContext.Provider>
   );
