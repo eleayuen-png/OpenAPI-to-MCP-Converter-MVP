@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, MemoryRouter, Routes, Route } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -16,38 +16,27 @@ import {
 } from 'lucide-react';
 
 /**
- * 🛑 CANVAS PREVIEW FIX
- * This mock state now includes a functional 'useState' so that the 
- * checkboxes and Select All buttons actually work in this preview!
- * * ⚠️ IMPORTANT FOR YOUR LOCAL PROJECT: 
- * When copying this to VS Code, DELETE the AppContext and useApp block 
- * below and UNCOMMENT your real import:
+ * 🛑 PREVIEW BRIDGE
+ * In your local VS Code project, you should use:
  * import { useApp } from '../context/AppContext';
+ * * To ensure this file compiles and previews correctly in this environment, 
+ * we define a local context bridge below.
  */
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
-  
-  // Local state for the preview environment
-  const [localSelection, setLocalSelection] = useState(new Set(['GET:/pet/findByStatus', 'GET:/store/inventory']));
-  
   if (!context) {
+    // This is the fallback data used for the preview environment only.
     return {
       endpoints: [
-        { id: 'PUT:/pet', method: 'PUT', path: '/pet', description: 'Update an existing pet', category: 'Pet Inventory' },
-        { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', category: 'Pet Inventory' },
-        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds Pets by status', category: 'Pet Inventory' },
-        { id: 'GET:/pet/findByTags', method: 'GET', path: '/pet/findByTags', description: 'Finds Pets by tags', category: 'Pet Inventory' },
-        { id: 'GET:/pet/{petId}', method: 'GET', path: '/pet/{petId}', description: 'Find pet by ID', category: 'Pet Inventory' },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Analytics' },
-        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Order Management' },
-        { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' },
-        { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get aggregate sales data', category: 'Analytics' }
+        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
+        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Store' },
+        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' }
       ],
-      selectedEndpoints: localSelection,
-      setSelectedEndpoints: setLocalSelection,
-      user: { uid: 'canvas-preview-user' }
+      selectedEndpoints: new Set(['GET:/pet/findByStatus']),
+      setSelectedEndpoints: () => {},
+      user: { uid: 'preview-user' }
     };
   }
   return context;
@@ -57,7 +46,7 @@ const useApp = () => {
 // --- MAIN PRUNE COMPONENT ---
 // ============================================================================
 
-export default function Prune() {
+function PruneContent() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -134,7 +123,7 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
-      // Pointing to your NEW Oregon Render URL
+      // Pointing to your Oregon Render URL
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,7 +132,10 @@ export default function Prune() {
       
       const data = await response.json();
       if (!response.ok || data.error) throw new Error(data.error || "Server Error");
-      if (data.suggestions) setSelectedEndpoints(new Set(data.suggestions));
+      
+      if (data.suggestions) {
+        setSelectedEndpoints(new Set(data.suggestions));
+      }
     } catch (error: any) {
       setAnalysisError(error.message);
     } finally {
@@ -317,5 +309,22 @@ export default function Prune() {
         </button>
       </div>
     </div>
+  );
+}
+
+// Default export for the Canvas Preview environment
+export default function App() {
+  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set(['GET:/pet/findByStatus']));
+  
+  return (
+    <MemoryRouter>
+      <AppContext.Provider value={{ selectedEndpoints, setSelectedEndpoints }}>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+          <Routes>
+            <Route path="*" element={<PruneContent />} />
+          </Routes>
+        </div>
+      </AppContext.Provider>
+    </MemoryRouter>
   );
 }
