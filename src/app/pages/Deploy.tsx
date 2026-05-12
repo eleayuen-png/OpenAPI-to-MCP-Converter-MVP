@@ -419,7 +419,7 @@ export function DeployPage() {
       setPiiMasking(!!piiMasking);
       setTargetBaseUrl(baseUrl.trim());
       
-      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
+      const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
