@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
-import { useNavigate, MemoryRouter, Routes, Route } from 'react-router';
+import { useNavigate } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -16,26 +16,29 @@ import {
 } from 'lucide-react';
 
 /**
- * 🛑 PREVIEW BRIDGE
- * In your local VS Code project, you should use:
- * import { useApp } from '../context/AppContext';
- * * To ensure this file compiles and previews correctly in this environment, 
- * we define a local context bridge below.
+ * 🛑 PREVIEW ENVIRONMENT BRIDGE
+ * To fix the "Could not resolve AppContext" error in this preview environment,
+ * we are using a local Mock Context. 
+ * * ⚠️ FOR YOUR LOCAL PROJECT (VS CODE):
+ * 1. Delete the 'MockContext' and 'useApp' block below.
+ * 2. Uncomment the following line:
+ * // import { useApp } from '../context/AppContext';
  */
-const AppContext = createContext<any>(null);
+
+const MockContext = createContext<any>(null);
 
 const useApp = () => {
-  const context = useContext(AppContext);
+  const context = useContext(MockContext);
   if (!context) {
-    // This is the fallback data used for the preview environment only.
+    // Fallback data for the browser preview
     return {
       endpoints: [
         { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Store' },
-        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' }
+        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns inventories', category: 'Analytics' },
+        { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' }
       ],
       selectedEndpoints: new Set(['GET:/pet/findByStatus']),
-      setSelectedEndpoints: () => {},
+      setSelectedEndpoints: () => {}, // Handled by local state in preview
       user: { uid: 'preview-user' }
     };
   }
@@ -46,13 +49,14 @@ const useApp = () => {
 // --- MAIN PRUNE COMPONENT ---
 // ============================================================================
 
-function PruneContent() {
+export default function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Connect to context (Real or Mock)
   const context = useApp() as any;
   const { 
     endpoints = [], 
@@ -114,6 +118,9 @@ function PruneContent() {
     setSelectedEndpoints(new Set());
   };
 
+  /**
+   * 🚀 MAGIC SUGGEST: Pings the Oregon Render Backend
+   */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -123,7 +130,7 @@ function PruneContent() {
         description: ep.description || ''
       }));
 
-      // Pointing to your Oregon Render URL
+      // Pointing to your NEW Oregon Render URL
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,26 +209,6 @@ function PruneContent() {
              <p className="text-slate-500 text-sm max-w-sm mx-auto mb-8 leading-relaxed">
                We couldn't find any valid routes. Ensure your JSON file is a valid OpenAPI/Swagger specification.
              </p>
-             
-             <div className="max-w-md mx-auto bg-slate-950 rounded-xl p-5 text-left border border-slate-800 shadow-xl font-mono">
-                <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
-                  <Terminal className="w-4 h-4 text-green-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">Diagnostics</span>
-                </div>
-                <div className="space-y-2 text-[11px]">
-                  <div className="flex justify-between border-b border-slate-900 pb-1">
-                    <span className="text-slate-500">Auth Status:</span>
-                    <span className={user ? 'text-green-400' : 'text-yellow-400'}>{user ? 'Connected' : 'Anonymous'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Endpoint Array:</span>
-                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found in memory</span>
-                  </div>
-                </div>
-                <button onClick={() => navigate('/')} className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95">
-                  Return to Upload
-                </button>
-             </div>
           </div>
         ) : (
           Object.entries(groupedEndpoints).map(([category, eps]) => {
@@ -281,18 +268,6 @@ function PruneContent() {
         )}
       </div>
 
-      <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-2xl p-5 flex items-start gap-4 transition-colors">
-        <div className="p-2 bg-blue-100 dark:bg-blue-800/50 rounded-xl">
-           <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-        <div>
-          <p className="text-sm text-[#141B41] dark:text-blue-200 font-bold mb-1">Efficiency Tip: Schema Pruning</p>
-          <p className="text-xs text-slate-600 dark:text-blue-200/70 leading-relaxed">
-            Selecting only high-value tools (GET/SEARCH/UPDATE) keeps the LLM's context window lean and prevents choice paralysis during agent reasoning.
-          </p>
-        </div>
-      </div>
-
       <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8">
         <button 
           onClick={() => navigate('/')} 
@@ -309,22 +284,5 @@ function PruneContent() {
         </button>
       </div>
     </div>
-  );
-}
-
-// Default export for the Canvas Preview environment
-export default function App() {
-  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set(['GET:/pet/findByStatus']));
-  
-  return (
-    <MemoryRouter>
-      <AppContext.Provider value={{ selectedEndpoints, setSelectedEndpoints }}>
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-          <Routes>
-            <Route path="*" element={<PruneContent />} />
-          </Routes>
-        </div>
-      </AppContext.Provider>
-    </MemoryRouter>
   );
 }
