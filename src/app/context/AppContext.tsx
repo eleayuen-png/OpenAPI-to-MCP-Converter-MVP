@@ -26,9 +26,6 @@ import {
 
 import type { Endpoint } from '../components/EndpointList';
 
-// --- Global Declarations ---
-// We use 'var' instead of 'const' to allow declaration merging across multiple files.
-// This resolves the "Cannot redeclare block-scoped variable" error.
 declare global {
   var __firebase_config: string | undefined;
   var __app_id: string | undefined;
@@ -87,7 +84,6 @@ interface AppContextType {
   resetWorkspace: () => Promise<void>;
 }
 
-// 🚀 YOUR FIREBASE CONFIGURATION
 const localFirebaseConfig = {
   apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
   authDomain: "mcp-studio-22971.firebaseapp.com",
@@ -121,12 +117,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<any>(null);
   const [appId, setAppId] = useState('mcp-studio-v1');
 
-  // 1. Initialize Firebase & Auth
   useEffect(() => {
     try {
       const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
-      console.log("☁️ Initializing Firebase...");
-      
       const firebaseApp = initializeApp(config);
       const firebaseAuth = getAuth(firebaseApp);
       const firestore = getFirestore(firebaseApp);
@@ -141,7 +134,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             await signInWithCustomToken(firebaseAuth, __initial_auth_token);
           } else if (!firebaseAuth.currentUser) {
             await signInAnonymously(firebaseAuth);
-            console.log("👤 Anonymous Sign-in Successful");
           }
         } catch (authErr) {
           console.error("❌ Auth Error:", authErr);
@@ -150,7 +142,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       initAuth();
       return onAuthStateChanged(firebaseAuth, (u) => {
-        console.log("🆔 User ID:", u?.uid || "Logged Out");
         setUser(u);
       });
     } catch (e) {
@@ -159,7 +150,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 2. Real-time Persistence (Read from Cloud)
   useEffect(() => {
     if (!user || !db) return;
 
@@ -172,13 +162,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const data = docSnap.data();
         
         if (data.endpoints) setEndpointsState(data.endpoints);
-        if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo !== undefined) setDeploymentInfoState(data.deploymentInfo);
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.isPro !== undefined) setIsProState(data.isPro);
         if (data.targetBaseUrl !== undefined) setTargetBaseUrlState(data.targetBaseUrl);
+        
+        // Robust hydration for Sets to prevent refresh wipe-outs
+        if (data.selectedEndpoints) {
+          if (Array.isArray(data.selectedEndpoints)) {
+            setSelectedEndpointsState(new Set(data.selectedEndpoints));
+          } else if (typeof data.selectedEndpoints === 'object') {
+            const selection = new Set<string>();
+            Object.entries(data.selectedEndpoints).forEach(([k, v]) => { if (v) selection.add(k); });
+            setSelectedEndpointsState(selection);
+          }
+        }
         
         if (data.logs) {
           setLogsState(data.logs.map((l: any) => {
@@ -206,7 +206,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [user, db, appId]);
 
-  // 3. Sync to Cloud (Write to Cloud)
   const syncToCloud = async (newState: any) => {
     if (!user || !db || isHydrating.current) return;
     
@@ -218,19 +217,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await setDoc(projectDocRef, cleanData, { merge: true });
-      console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
     } catch (error: any) {
       console.warn("⚠️ Cloud Save Failed:", error.message);
     }
   };
 
-  /**
-   * 🧹 RESET WORKSPACE
-   * Clears project-specific state to allow a fresh deployment.
-   */
   const resetWorkspace = async () => {
-    console.log("🧹 Wiping stale project data...");
-    
     setEndpointsState([]);
     setSelectedEndpointsState(new Set());
     setMacrosState([]);
@@ -247,14 +239,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           deploymentInfo: null,
           targetBaseUrl: ''
         }, { merge: true });
-        console.log("✅ Cloud workspace reset.");
       } catch (e: any) {
         console.warn("⚠️ Reset sync failed:", e.message);
       }
     }
   };
 
-  // 4. Enhanced Logging logic
   const addLog = async (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     if (!user || !db) return;
     

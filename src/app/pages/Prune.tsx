@@ -116,6 +116,11 @@ export function Prune() {
         throw new Error(data.details || data.error || "Server Error");
       }
 
+      // 🚩 FIX: Even if the server responds with a 200 OK, check if it sent an error message!
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       if (data.suggestions && data.suggestions.length > 0) {
         console.log("[Frontend] 4. Array of suggestions to set:", data.suggestions);
         const newSet = new Set<string>(data.suggestions);
