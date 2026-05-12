@@ -17,31 +17,36 @@ import {
 
 /**
  * 🛑 PREVIEW ENVIRONMENT BRIDGE
- * To fix the "Could not resolve AppContext" error in this preview environment,
- * we are using a local Mock Context. 
+ * To fix the resolution error in this preview, we've bundled a local context.
  * * ⚠️ FOR YOUR LOCAL PROJECT (VS CODE):
- * 1. Delete the 'MockContext' and 'useApp' block below.
- * 2. Uncomment the following line:
- * // import { useApp } from '../context/AppContext';
+ * 1. Delete this 'Local Mock Context' block.
+ * 2. Restore your real import: import { useApp } from '../context/AppContext';
  */
 
-const MockContext = createContext<any>(null);
+// --- Local Mock Context (For Preview Only) ---
+const AppContext = createContext<any>(null);
+
+const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set(['GET:/pet/findByStatus']));
+  
+  const value = {
+    endpoints: [
+      { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
+      { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns inventories', category: 'Analytics' },
+      { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' },
+      { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get sales data', category: 'Analytics' }
+    ],
+    selectedEndpoints,
+    setSelectedEndpoints,
+    user: { uid: 'preview-user' }
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
 
 const useApp = () => {
-  const context = useContext(MockContext);
-  if (!context) {
-    // Fallback data for the browser preview
-    return {
-      endpoints: [
-        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns inventories', category: 'Analytics' },
-        { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' }
-      ],
-      selectedEndpoints: new Set(['GET:/pet/findByStatus']),
-      setSelectedEndpoints: () => {}, // Handled by local state in preview
-      user: { uid: 'preview-user' }
-    };
-  }
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useApp must be used within a provider");
   return context;
 };
 
@@ -49,21 +54,19 @@ const useApp = () => {
 // --- MAIN PRUNE COMPONENT ---
 // ============================================================================
 
-export default function Prune() {
+function PruneContent() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Connect to context (Real or Mock)
-  const context = useApp() as any;
   const { 
     endpoints = [], 
     selectedEndpoints = new Set(), 
     setSelectedEndpoints,
     user 
-  } = context || {};
+  } = useApp();
 
   // 1. Magic Suggest Timer logic
   useEffect(() => {
@@ -130,7 +133,6 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
-      // Pointing to your NEW Oregon Render URL
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -151,7 +153,7 @@ export default function Prune() {
   };
 
   return (
-    <div className="p-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-24">
+    <div className="p-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-24 min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
@@ -175,7 +177,7 @@ export default function Prune() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row items-center gap-4 transition-colors sticky top-20 z-40 backdrop-blur-md">
+      <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-5 mb-6 flex flex-col sm:row items-center gap-4 transition-colors sticky top-4 z-40 backdrop-blur-md">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
@@ -199,73 +201,61 @@ export default function Prune() {
         </div>
       </div>
 
-      <div className="space-y-6 min-h-[400px]">
-        {Object.keys(groupedEndpoints).length === 0 ? (
-          <div className="p-12 text-center bg-white dark:bg-[#111827] border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl animate-in fade-in zoom-in-95">
-             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100 dark:border-slate-800">
-               <Database className="h-8 w-8 text-slate-300" />
-             </div>
-             <h3 className="text-xl font-bold text-[#141B41] dark:text-white mb-2">No endpoints detected</h3>
-             <p className="text-slate-500 text-sm max-w-sm mx-auto mb-8 leading-relaxed">
-               We couldn't find any valid routes. Ensure your JSON file is a valid OpenAPI/Swagger specification.
-             </p>
-          </div>
-        ) : (
-          Object.entries(groupedEndpoints).map(([category, eps]) => {
-            const categoryIds = eps.map((ep: any) => ep.id || `${ep.method}:${ep.path}`);
-            const isAllSelected = categoryIds.every((id: string) => selectedEndpoints.has(id));
+      <div className="space-y-6 min-h-[400px] mt-6">
+        {Object.entries(groupedEndpoints).map(([category, eps]) => {
+          const categoryIds = eps.map((ep: any) => ep.id || `${ep.method}:${ep.path}`);
+          const isAllSelected = categoryIds.every((id: string) => selectedEndpoints.has(id));
 
-            return (
-              <div key={category} className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-colors">
-                <div className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <Filter className="h-4 w-4 text-slate-400" />
-                    <h3 className="font-bold text-[#141B41] dark:text-white text-sm">
-                      {category} <span className="text-slate-400 font-medium ml-1">({eps.length})</span>
-                    </h3>
-                  </div>
-                  <button 
-                    onClick={() => toggleCategory(categoryIds, isAllSelected)}
-                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:opacity-70 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors"
-                  >
-                    {isAllSelected ? 'Deselect All' : 'Select Category'}
-                  </button>
+          return (
+            <div key={category} className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-colors">
+              <div className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <Filter className="h-4 w-4 text-slate-400" />
+                  <h3 className="font-bold text-[#141B41] dark:text-white text-sm">
+                    {category} <span className="text-slate-400 font-medium ml-1">({eps.length})</span>
+                  </h3>
                 </div>
-                
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                  {eps.map((ep: any) => {
-                    const id = ep.id || `${ep.method}:${ep.path}`;
-                    const isSelected = selectedEndpoints.has(id);
-                    return (
-                      <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 cursor-pointer transition-all ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
-                        <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-all ${
-                            isSelected 
-                              ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-sm' 
-                              : 'border-slate-300 dark:border-slate-600'
-                          }`}>
-                          {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
-                        </div>
-                        <div className={`px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
-                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' : 
-                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' : 
-                          'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
-                        }`}>
-                          {ep.method.toUpperCase()}
-                        </div>
-                        <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
-                          {ep.path}
-                        </div>
-                        <div className="hidden sm:block flex-1 text-[11px] text-slate-500 italic truncate text-right">
-                          {ep.description || ep.summary || 'No description provided'}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <button 
+                  onClick={() => toggleCategory(categoryIds, isAllSelected)}
+                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:opacity-70 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors"
+                >
+                  {isAllSelected ? 'Deselect All' : 'Select Category'}
+                </button>
               </div>
-            );
-          })
-        )}
+              
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                {eps.map((ep: any) => {
+                  const id = ep.id || `${ep.method}:${ep.path}`;
+                  const isSelected = selectedEndpoints.has(id);
+                  return (
+                    <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 cursor-pointer transition-all ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
+                      <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                          isSelected 
+                            ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-sm' 
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}>
+                        {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
+                      </div>
+                      <div className={`px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
+                        ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' : 
+                        ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' : 
+                        'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                        {ep.method.toUpperCase()}
+                      </div>
+                      <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
+                        {ep.path}
+                      </div>
+                      <div className="hidden sm:block flex-1 text-[11px] text-slate-500 italic truncate text-right">
+                        {ep.description || ep.summary || 'No description provided'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8">
@@ -284,5 +274,18 @@ export default function Prune() {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * 🚀 EXPORTED COMPONENT (Self-Contained)
+ * This App component wraps everything in the required provider
+ * to ensure checkboxes work in the preview environment.
+ */
+export default function App() {
+  return (
+    <AppProvider>
+      <PruneContent />
+    </AppProvider>
   );
 }
