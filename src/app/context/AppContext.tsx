@@ -165,9 +165,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
         if (data.deploymentInfo !== undefined) setDeploymentInfoState(data.deploymentInfo);
-        if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.isPro !== undefined) setIsProState(data.isPro);
         if (data.targetBaseUrl !== undefined) setTargetBaseUrlState(data.targetBaseUrl);
+        
+        /**
+         * 🚩 SECURITY FIX: Enforcement
+         * If the user is NOT a pro member, force the PII Masking to FALSE,
+         * even if the database says true.
+         */
+        const proStatus = !!data.isPro;
+        if (data.piiMasking !== undefined) {
+           setPiiMaskingState(proStatus ? data.piiMasking : false);
+        }
         
         // Robust hydration for Sets to prevent refresh wipe-outs
         if (data.selectedEndpoints) {
@@ -314,7 +323,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deploymentInfo,
     setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
     piiMasking,
-    setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
+    setPiiMasking: (val: boolean) => { 
+      // 🚩 ENFORCEMENT: Final safety check before syncing
+      const finalVal = isPro ? val : false;
+      setPiiMaskingState(finalVal); 
+      syncToCloud({ piiMasking: finalVal }); 
+    },
     isPro,
     targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
