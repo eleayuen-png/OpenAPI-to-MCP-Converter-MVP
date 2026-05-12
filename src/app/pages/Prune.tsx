@@ -15,10 +15,23 @@ import {
   Lightbulb
 } from 'lucide-react';
 
+/**
+ * 🛑 CANVAS PREVIEW FIX
+ * This mock state now includes a functional 'useState' so that the 
+ * checkboxes and Select All buttons actually work in this preview!
+ * * ⚠️ IMPORTANT FOR YOUR LOCAL PROJECT: 
+ * When copying this to VS Code, DELETE the AppContext and useApp block 
+ * below and UNCOMMENT your real import:
+ * import { useApp } from '../context/AppContext';
+ */
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
+  
+  // Local state for the preview environment
+  const [localSelection, setLocalSelection] = useState(new Set(['GET:/pet/findByStatus', 'GET:/store/inventory']));
+  
   if (!context) {
     return {
       endpoints: [
@@ -32,13 +45,17 @@ const useApp = () => {
         { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' },
         { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get aggregate sales data', category: 'Analytics' }
       ],
-      selectedEndpoints: new Set(['GET:/pet/findByStatus', 'GET:/store/inventory']),
-      setSelectedEndpoints: () => {},
+      selectedEndpoints: localSelection,
+      setSelectedEndpoints: setLocalSelection,
       user: { uid: 'canvas-preview-user' }
     };
   }
   return context;
 };
+
+// ============================================================================
+// --- MAIN PRUNE COMPONENT ---
+// ============================================================================
 
 export default function Prune() {
   const navigate = useNavigate();
@@ -55,6 +72,7 @@ export default function Prune() {
     user 
   } = context || {};
 
+  // 1. Magic Suggest Timer logic
   useEffect(() => {
     let interval: any;
     if (isAnalyzing) {
@@ -65,6 +83,7 @@ export default function Prune() {
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
+  // 2. Group endpoints by category
   const groupedEndpoints = useMemo(() => {
     const groups: Record<string, any[]> = {};
     const filtered = (endpoints || []).filter((ep: any) => 
@@ -115,7 +134,7 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
-      // 🚩 FIX: Pointing to your NEW Oregon Render URL
+      // Pointing to your NEW Oregon Render URL
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
