@@ -29,7 +29,10 @@ import {
   X,
   Zap,
   ArrowRight,
-  Loader2
+  Loader2,
+  Terminal,
+  ExternalLink,
+  Laptop
 } from 'lucide-react';
 
 // --- 1. FIREBASE INITIALIZATION ---
@@ -220,20 +223,66 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
 export function DeploymentSuccess({ info, count }: { info: DeploymentInfo, count: number }) {
   const { setDeploymentInfo } = useApp();
   const [copied, setCopied] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude'>('cursor');
   
-  const handleCopy = () => {
-    const el = document.createElement('textarea');
-    el.value = info.serverUrl;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(info.serverUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopySnippet = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(true);
+    setTimeout(() => setCopiedSnippet(false), 2000);
+  };
+
+  const cursorSnippet = JSON.stringify({
+    "mcpServers": {
+      "mcp-studio-proxy": {
+        "type": "sse",
+        "url": info.serverUrl
+      }
+    }
+  }, null, 2);
+
+  const claudeSnippet = JSON.stringify({
+    "mcpServers": {
+      "mcp-studio-proxy": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sse", info.serverUrl]
+      }
+    }
+  }, null, 2);
+
+  const steps = {
+    cursor: [
+      "Open Cursor Settings (Cmd+Shift+J / Ctrl+Shift+J)",
+      "Navigate to 'Models' then 'MCP'",
+      "Click '+ Add New MCP Server'",
+      "Name it 'mcp-studio', choose 'SSE' as type",
+      "Paste the Server URL or the JSON snippet"
+    ],
+    cline: [
+      "Open Cline settings in your IDE",
+      "Scroll to the 'MCP Servers' section",
+      "Click 'Add Server'",
+      "Select 'SSE' and paste the URL",
+      "Save and enable the new server"
+    ],
+    claude: [
+      "Locate your Claude Desktop config file",
+      "Mac: ~/Library/Application Support/Claude/claude_desktop_config.json",
+      "Windows: %APPDATA%/Claude/claude_desktop_config.json",
+      "Paste the JSON snippet on the right into the 'mcpServers' object",
+      "Restart Claude Desktop"
+    ]
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* 1. Main Success Banner */}
       <div className="bg-green-900/10 border border-green-900/50 rounded-2xl p-8 text-center shadow-sm">
         <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
@@ -246,7 +295,7 @@ export function DeploymentSuccess({ info, count }: { info: DeploymentInfo, count
             {info.serverUrl}
           </div>
           <button 
-            onClick={handleCopy} 
+            onClick={handleCopyUrl} 
             className="px-6 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-white font-bold transition-all shadow-sm active:scale-95"
           >
             {copied ? 'Copied!' : 'Copy URL'}
@@ -254,6 +303,7 @@ export function DeploymentSuccess({ info, count }: { info: DeploymentInfo, count
         </div>
       </div>
 
+      {/* 2. Redeploy Button (As requested, box is placed below this) */}
       <div className="flex justify-center">
         <button 
           onClick={() => setDeploymentInfo(null)}
@@ -262,6 +312,72 @@ export function DeploymentSuccess({ info, count }: { info: DeploymentInfo, count
           <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
           Modify configuration & redeploy
         </button>
+      </div>
+
+      {/* 3. Snippets Instruction Box (Restored with Split View) */}
+      <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+        {/* Tabs */}
+        <div className="flex border-b border-slate-800 bg-[#161e2e]">
+          {(['cursor', 'cline', 'claude'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all ${
+                activeTab === tab 
+                  ? 'bg-blue-600/10 text-blue-400 border-b-2 border-blue-500' 
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {tab === 'cursor' ? 'Cursor IDE' : tab === 'cline' ? 'Cline' : 'Claude Desktop'}
+            </button>
+          ))}
+        </div>
+
+        {/* Content Split View */}
+        <div className="flex flex-col lg:flex-row min-h-[300px]">
+          {/* Left: Steps */}
+          <div className="lg:w-1/3 p-6 border-r border-slate-800 bg-slate-900/30">
+            <h3 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+              <Pointer className="w-4 h-4 text-blue-400" />
+              Installation Steps
+            </h3>
+            <ul className="space-y-4">
+              {steps[activeTab].map((step, idx) => (
+                <li key={idx} className="flex gap-3 text-xs leading-relaxed text-slate-400">
+                  <span className="flex items-center justify-center w-5 h-5 rounded bg-slate-800 border border-slate-700 text-blue-400 font-bold shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right: Code */}
+          <div className="flex-1 p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Snippet</span>
+              </div>
+              <button 
+                onClick={() => handleCopySnippet(activeTab === 'claude' ? claudeSnippet : cursorSnippet)}
+                className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5"
+              >
+                {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Snippet</>}
+              </button>
+            </div>
+            <div className="flex-1 bg-black/40 border border-slate-800 rounded-xl p-4 overflow-hidden relative group">
+              <pre className="text-[11px] font-mono text-blue-100 h-full overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+                {activeTab === 'claude' ? claudeSnippet : cursorSnippet}
+              </pre>
+            </div>
+            <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 italic">
+              <Terminal className="w-3 h-3" />
+              {activeTab === 'claude' ? 'Paste this into your main config file.' : 'Add this as a new server in settings.'}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -291,8 +407,6 @@ export function Deploy() {
     try {
       const selectedDetails = endpoints.filter(ep => selectedEndpoints.has(`${ep.method}:${ep.path}`));
       
-      // CRITICAL FIX: Use setDoc with { merge: true } instead of updateDoc
-      // This ensures the document is created if it doesn't exist for the current UID.
       const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       
       await setDoc(projectRef, { 
@@ -325,8 +439,6 @@ export function Deploy() {
       };
 
       setDeploymentInfo(newDeployInfo);
-
-      // Save success state to cloud (again ensuring setDoc is used)
       await setDoc(projectRef, { deploymentInfo: newDeployInfo }, { merge: true });
       
     } catch (error: any) {
@@ -398,7 +510,7 @@ export default function App() {
       if (snap.exists()) {
         const data = snap.data();
         if (data.targetBaseUrl) setTargetBaseUrl(data.targetBaseUrl);
-        if (data.piiMasking !== undefined) setPiiMasking(data.piiMasking);
+        if (data.piiMasking !== undefined) setPiiMasking(data.piiRedaction || data.piiMasking || false);
         if (data.isPro !== undefined) setIsPro(data.isPro);
         
         if (Array.isArray(data.selectedEndpoints)) {
@@ -414,7 +526,7 @@ export default function App() {
       }
       setSyncing(false);
     }, (err) => {
-      console.error("Data sync error (permissions?):", err);
+      console.error("Data sync error:", err);
       setSyncing(false);
     });
 
@@ -438,7 +550,7 @@ export default function App() {
   };
 
   const contextValue = { 
-    endpoints, setEndpoints, selectedEndpoints, setSelectedEndpoints, deploymentInfo, setDeploymentInfo, 
+    endpoints, setEndpoints: (val: Endpoint[]) => setEndpoints(val), selectedEndpoints, setSelectedEndpoints, deploymentInfo, setDeploymentInfo, 
     piiMasking, setPiiMasking, isPro, targetBaseUrl, setTargetBaseUrl, syncing, user, resetWorkspace 
   };
 
