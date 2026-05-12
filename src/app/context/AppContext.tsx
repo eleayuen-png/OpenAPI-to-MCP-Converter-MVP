@@ -27,10 +27,12 @@ import {
 import type { Endpoint } from '../components/EndpointList';
 
 // --- Global Declarations ---
+// We use 'var' instead of 'const' to allow declaration merging across multiple files.
+// This resolves the "Cannot redeclare block-scoped variable" error.
 declare global {
-  const __firebase_config: string | undefined;
-  const __app_id: string | undefined;
-  const __initial_auth_token: string | undefined;
+  var __firebase_config: string | undefined;
+  var __app_id: string | undefined;
+  var __initial_auth_token: string | undefined;
 }
 
 export interface MacroTool {
@@ -82,7 +84,7 @@ interface AppContextType {
   isInitialLoad: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  resetWorkspace: () => Promise<void>; // 🧹 Added for cache invalidation
+  resetWorkspace: () => Promise<void>;
 }
 
 // 🚀 YOUR FIREBASE CONFIGURATION
@@ -173,7 +175,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
-        if (data.deploymentInfo !== undefined) setDeploymentInfoState(data.deploymentInfo); // Handle null explicitly
+        if (data.deploymentInfo !== undefined) setDeploymentInfoState(data.deploymentInfo);
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.isPro !== undefined) setIsProState(data.isPro);
         if (data.targetBaseUrl !== undefined) setTargetBaseUrlState(data.targetBaseUrl);
@@ -225,19 +227,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /**
    * 🧹 RESET WORKSPACE
    * Clears project-specific state to allow a fresh deployment.
-   * Called when a new file is uploaded to prevent stale key issues.
    */
   const resetWorkspace = async () => {
     console.log("🧹 Wiping stale project data...");
     
-    // 1. Reset local state
     setEndpointsState([]);
     setSelectedEndpointsState(new Set());
     setMacrosState([]);
-    setDeploymentInfoState(null); // CRITICAL FIX
+    setDeploymentInfoState(null);
     setTargetBaseUrlState('');
 
-    // 2. Sync to Firestore (Force overwrite values to clear cache)
     if (user && db) {
       try {
         const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
@@ -282,13 +281,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
-
       if (!credential) throw new Error("Could not retrieve Google credential.");
-
       if (user?.isAnonymous) {
         try {
           await linkWithCredential(user, credential);
-          console.log("🔗 Guest account linked.");
         } catch (linkError: any) {
           if (linkError.code === 'auth/credential-already-in-use') {
             await signInWithCredential(auth, credential);
