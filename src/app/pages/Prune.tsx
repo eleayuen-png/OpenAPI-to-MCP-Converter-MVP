@@ -12,11 +12,10 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// --- LOCAL MOCK FOR PREVIEW ENVIRONMENT ---
-const AppContext = createContext<any>(null);
-const useApp = () => useContext(AppContext);
+// @ts-ignore
+import { useApp } from '../context/AppContext';
 
-export function Prune() {
+export default function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -87,21 +86,18 @@ export function Prune() {
   };
 
   /**
-   * 🪄 MAGIC SUGGEST (DIAGNOSTIC VERSION)
-   * Calls the backend to analyze the schema using AI and suggest the best tools.
+   * 🪄 MAGIC SUGGEST
    */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
     console.log("=== FRONTEND MAGIC SUGGEST TRIGGERED ===");
-    console.log("[Frontend] 1. Total endpoints in state:", endpoints.length);
 
     try {
       const payload = endpoints.map((ep: any) => ({
         id: `${ep.method}:${ep.path}`,
         description: ep.description || ep.summary || ''
       }));
-      console.log("[Frontend] 2. Sample payload ID being sent:", payload.length > 0 ? payload[0].id : "None");
 
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
         method: 'POST',
@@ -110,26 +106,17 @@ export function Prune() {
       });
       
       const data = await response.json();
-      console.log("[Frontend] 3. Raw response from backend:", data);
       
-      if (!response.ok) {
-        throw new Error(data.details || data.error || "Server Error");
-      }
-
-      // 🚩 FIX: Even if the server responds with a 200 OK, check if it sent an error message!
-      if (data.error) {
-        throw new Error(data.error);
+      // Ensure any explicit errors from the backend are thrown so they display in the UI banner
+      if (!response.ok || data.error) {
+        throw new Error(data.error || data.details || "Server Error");
       }
 
       if (data.suggestions && data.suggestions.length > 0) {
-        console.log("[Frontend] 4. Array of suggestions to set:", data.suggestions);
         const newSet = new Set<string>(data.suggestions);
-        console.log("[Frontend] 5. Set size created:", newSet.size);
-        
         setSelectedEndpoints(newSet);
-        console.log("[Frontend] 6. setSelectedEndpoints has been fired! Check your UI.");
       } else {
-        console.warn("[Frontend] 4. WARNING: suggestions array is empty or missing.", data);
+        throw new Error("AI successfully processed, but returned no endpoint suggestions.");
       }
     } catch (error: any) {
       console.error("[Frontend] Magic Suggest failed with exception:", error);
@@ -156,7 +143,7 @@ export function Prune() {
       <div className="max-w-5xl mx-auto">
         
         {analysisError && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in slide-in-from-top-2">
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-400 animate-in slide-in-from-top-2">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <div className="text-sm">
               <p className="font-bold">Magic Suggest Failed</p>
@@ -299,31 +286,5 @@ export function Prune() {
         </div>
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-// --- STANDALONE PREVIEW WRAPPER ---
-// This safely isolates the page for rendering in this environment without a double router
-// ============================================================================
-export default function App() {
-  const [selectedEndpoints, setSelectedEndpoints] = useState<Set<string>>(new Set());
-  
-  const mockEndpoints = [
-    { id: 'GET:/pet', method: 'GET', path: '/pet', description: 'Finds Pets by status', tags: ['Pet'] },
-    { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', tags: ['Pet'] },
-    { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories by status', tags: ['Store'] }
-  ];
-
-  return (
-    <AppContext.Provider value={{
-      endpoints: mockEndpoints,
-      selectedEndpoints,
-      setSelectedEndpoints
-    }}>
-      <div className="min-h-screen bg-[#020617] text-slate-200">
-        <Prune />
-      </div>
-    </AppContext.Provider>
   );
 }
