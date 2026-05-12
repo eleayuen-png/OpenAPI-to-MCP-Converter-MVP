@@ -115,7 +115,8 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
-      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
+      // 🚩 FIX: Pointing to your NEW Oregon Render URL
+      const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoints: payload })
