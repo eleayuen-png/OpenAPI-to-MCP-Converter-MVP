@@ -1,20 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { 
-  getAuth, 
-  onAuthStateChanged, 
-  signInAnonymously, 
-  signInWithCustomToken,
-  Auth,
-  User
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  onSnapshot, 
-  setDoc,
-  Firestore
-} from 'firebase/firestore';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { 
   AlertCircle, 
   Server, 
@@ -33,88 +17,21 @@ import {
   Terminal
 } from 'lucide-react';
 
-// --- 1. FIREBASE INITIALIZATION ---
+// ============================================================================
+// 🛑 IMPORTANT FOR LOCAL DEVELOPMENT:
+// 1. Uncomment the import below:
+// import { useApp } from '../context/AppContext';
+// 2. Remove the Mock Context and Preview Wrapper at the bottom of this file.
+// ============================================================================
 
-const localFirebaseConfig = {
-  apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
-  authDomain: "mcp-studio-22971.firebaseapp.com",
-  projectId: "mcp-studio-22971",
-  storageBucket: "mcp-studio-22971.firebasestorage.app",
-  messagingSenderId: "1096681882291",
-  appId: "1:1096681882291:web:9452e01ee86294b33ee6c6",
-  measurementId: "G-8HBCC81VHB"
-};
+// --- LOCAL MOCK FOR PREVIEW ENVIRONMENT ---
+const AppContext = createContext<any>(null);
+const useApp = () => useContext(AppContext);
 
-declare global {
-  var __firebase_config: string | undefined;
-  var __app_id: string | undefined;
-  var __initial_auth_token: string | undefined;
-}
-
-let firebaseApp: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-
-try {
-  const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
-  firebaseApp = getApps().length === 0 ? initializeApp(config) : getApps()[0];
-  auth = getAuth(firebaseApp);
-  db = getFirestore(firebaseApp);
-} catch (e) {
-  console.error("Firebase Initialization Failure:", e);
-}
-
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'mcp-studio-v1';
-
-// --- 2. TYPES ---
-
-export interface Endpoint {
-  id: string;
-  method: string;
-  path: string;
-  description: string;
-  category: string;
-  tags?: string[];
-}
-
-export interface DeploymentInfo {
-  serverUrl: string;
-  apiKey: string;
-  piiMasking?: boolean;
-}
-
-// --- 3. CONTEXT DEFINITION ---
-
-interface AppContextType {
-  endpoints: Endpoint[];
-  setEndpoints: (val: Endpoint[]) => void;
-  selectedEndpoints: Set<string>;
-  setSelectedEndpoints: (val: Set<string>) => void;
-  deploymentInfo: DeploymentInfo | null;
-  setDeploymentInfo: (info: DeploymentInfo | null) => void;
-  piiMasking: boolean;
-  setPiiMasking: (enabled: boolean) => void;
-  isPro: boolean;
-  targetBaseUrl: string;
-  setTargetBaseUrl: (url: string) => void;
-  syncing: boolean;
-  user: User | null;
-  resetWorkspace: () => Promise<void>;
-  loginWithGoogle?: () => Promise<void>;
-}
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
-export function useApp() {
-  const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within AppProvider');
-  return context;
-}
-
-// --- 4. UI COMPONENTS ---
+// --- UI COMPONENTS ---
 
 export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean, onClose: () => void, featureName: string }) {
-  const { user, loginWithGoogle } = useApp();
+  const { user, loginWithGoogle } = useApp() as any;
 
   if (!isOpen) return null;
 
@@ -158,7 +75,7 @@ export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean
 }
 
 export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: { onDeploy: () => void, isDeploying: boolean, baseUrl: string, setBaseUrl: (url: string) => void }) {
-  const { selectedEndpoints, piiMasking, setPiiMasking, isPro } = useApp();
+  const { selectedEndpoints, piiMasking, setPiiMasking, isPro } = useApp() as any;
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
@@ -170,7 +87,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
       
       <div className="min-h-[40px] flex items-center justify-center mb-8">
          <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed text-center">
-            You have selected <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedEndpoints.size}</span> endpoints. We will securely deploy an MCP gateway instance for your agent.
+            You have selected <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedEndpoints?.size || 0}</span> endpoints. We will securely deploy an MCP gateway instance for your agent.
           </p>
       </div>
 
@@ -182,7 +99,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
             value={baseUrl} 
             onChange={(e) => setBaseUrl(e.target.value)} 
             placeholder="https://api.example.com/v1"
-            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:ring-2 focus:ring-blue-500/50 outline-none transition-all" 
+            className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-[#141B41] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
           />
         </div>
 
@@ -205,7 +122,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
 
       <button 
         onClick={onDeploy} 
-        disabled={isDeploying || selectedEndpoints.size === 0 || !baseUrl.trim()} 
+        disabled={isDeploying || !selectedEndpoints || selectedEndpoints.size === 0 || !baseUrl.trim()} 
         className="w-full max-w-md px-8 py-4 bg-[#141B41] hover:bg-[#1a2352] dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95"
       >
         {isDeploying ? <><Loader2 className="w-4 h-4 animate-spin" /> Deploying Gateway...</> : 'Deploy MCP Server'}
@@ -217,7 +134,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
 }
 
 export function DeploymentSuccess({ info, count }: { info: any, count: number }) {
-  const { setDeploymentInfo } = useApp();
+  const { setDeploymentInfo } = useApp() as any;
   const [copied, setCopied] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude'>('cursor');
@@ -374,8 +291,8 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 
 // --- MAIN DEPLOY PAGE ---
 
-export default function Deploy() {
-  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+export function Deploy() {
+  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, targetBaseUrl, setTargetBaseUrl, user } = useApp() as any;
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState(targetBaseUrl || 'https://petstore.swagger.io/v2');
@@ -441,8 +358,39 @@ export default function Deploy() {
       {!deploymentInfo ? (
         <DeploymentPanel onDeploy={handleDeploy} isDeploying={isDeploying} baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
       ) : (
-        <DeploymentSuccess info={deploymentInfo} count={selectedEndpoints.size} />
+        <DeploymentSuccess info={deploymentInfo} count={selectedEndpoints?.size || 0} />
       )}
     </div>
+  );
+}
+
+// ============================================================================
+// --- STANDALONE PREVIEW WRAPPER ---
+// ============================================================================
+export default function App() {
+  const [deploymentInfo, setDeploymentInfo] = useState<any>(null);
+  const [piiMasking, setPiiMasking] = useState(false);
+  const [targetBaseUrl, setTargetBaseUrl] = useState('https://petstore.swagger.io/v2');
+
+  const mockContext = {
+    selectedEndpoints: new Set(['GET:/pet']),
+    endpoints: [{ id: 'GET:/pet', method: 'GET', path: '/pet' }],
+    deploymentInfo,
+    setDeploymentInfo,
+    piiMasking,
+    setPiiMasking,
+    targetBaseUrl,
+    setTargetBaseUrl,
+    user: { uid: 'guest123', isAnonymous: true },
+    isPro: false,
+    loginWithGoogle: async () => {}
+  };
+
+  return (
+    <AppContext.Provider value={mockContext}>
+      <div className="min-h-screen bg-[#020617] text-slate-200">
+        <Deploy />
+      </div>
+    </AppContext.Provider>
   );
 }
