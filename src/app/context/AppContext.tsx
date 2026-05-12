@@ -130,10 +130,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const initAuth = async () => {
         try {
-          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(firebaseAuth, __initial_auth_token);
-          } else if (!firebaseAuth.currentUser) {
-            await signInAnonymously(firebaseAuth);
+          // Wait for Firebase to restore any existing session before proceeding
+          await firebaseAuth.authStateReady();
+          
+          if (!firebaseAuth.currentUser) {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+            } else {
+              await signInAnonymously(firebaseAuth);
+            }
           }
         } catch (authErr) {
           console.error("❌ Auth Error:", authErr);
