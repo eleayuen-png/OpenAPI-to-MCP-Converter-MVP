@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router';
-// @ts-ignore
-import { useApp } from '../context/AppContext';
+import { useNavigate, BrowserRouter } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -14,7 +12,18 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-export default function Prune() {
+// ============================================================================
+// 🛑 IMPORTANT FOR LOCAL DEVELOPMENT:
+// 1. Uncomment the import below:
+// import { useApp } from '../context/AppContext';
+// 2. Remove the Mock Context and Preview Wrapper at the bottom of this file.
+// ============================================================================
+
+// --- LOCAL MOCK FOR PREVIEW ENVIRONMENT ---
+const AppContext = React.createContext<any>(null);
+const useApp = () => React.useContext(AppContext);
+
+export function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -88,39 +97,51 @@ export default function Prune() {
   };
 
   /**
-   * 🪄 MAGIC SUGGEST
+   * 🪄 MAGIC SUGGEST (DIAGNOSTIC VERSION)
    * Calls the backend to analyze the schema using AI and suggest the best tools.
    */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
+    console.log("=== FRONTEND MAGIC SUGGEST TRIGGERED ===");
+    console.log("[Frontend] 1. Total endpoints in state:", endpoints.length);
+
     try {
+      const payload = endpoints.map((ep: any) => ({
+        id: `${ep.method}:${ep.path}`,
+        description: ep.description || ep.summary || ''
+      }));
+      console.log("[Frontend] 2. Sample payload ID being sent:", payload.length > 0 ? payload[0].id : "None");
+
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          endpoints: endpoints.map((ep: any) => ({
-            id: `${ep.method}:${ep.path}`,
-            description: ep.description || ep.summary || ''
-          }))
-        })
+        body: JSON.stringify({ endpoints: payload })
       });
       
       const data = await response.json();
+      console.log("[Frontend] 3. Raw response from backend:", data);
       
       if (!response.ok) {
         throw new Error(data.details || data.error || "Server Error");
       }
 
-      if (data.suggestions) {
-        // Suggest the best tools identified by AI
-        setSelectedEndpoints(new Set(data.suggestions));
+      if (data.suggestions && data.suggestions.length > 0) {
+        console.log("[Frontend] 4. Array of suggestions to set:", data.suggestions);
+        const newSet = new Set<string>(data.suggestions);
+        console.log("[Frontend] 5. Set size created:", newSet.size);
+        
+        setSelectedEndpoints(newSet);
+        console.log("[Frontend] 6. setSelectedEndpoints has been fired! Check your UI.");
+      } else {
+        console.warn("[Frontend] 4. WARNING: suggestions array is empty or missing.", data);
       }
     } catch (error: any) {
-      console.error("Magic Suggest failed:", error);
+      console.error("[Frontend] Magic Suggest failed with exception:", error);
       setAnalysisError(error.message);
     } finally {
       setIsAnalyzing(false);
+      console.log("=== FRONTEND MAGIC SUGGEST FINISHED ===");
     }
   };
 
@@ -283,5 +304,34 @@ export default function Prune() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// --- STANDALONE PREVIEW WRAPPER ---
+// This safely isolates the page for rendering in this environment.
+// Do not copy this bottom section to your local project.
+// ============================================================================
+export default function App() {
+  const [selectedEndpoints, setSelectedEndpoints] = useState<Set<string>>(new Set());
+  
+  const mockEndpoints = [
+    { id: 'GET:/pet', method: 'GET', path: '/pet', description: 'Finds Pets by status', tags: ['Pet'] },
+    { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', tags: ['Pet'] },
+    { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories by status', tags: ['Store'] }
+  ];
+
+  return (
+    <AppContext.Provider value={{
+      endpoints: mockEndpoints,
+      selectedEndpoints,
+      setSelectedEndpoints
+    }}>
+      <BrowserRouter>
+        <div className="min-h-screen bg-[#020617] text-slate-200">
+          <Prune />
+        </div>
+      </BrowserRouter>
+    </AppContext.Provider>
   );
 }
