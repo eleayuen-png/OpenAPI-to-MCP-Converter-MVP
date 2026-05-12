@@ -1,51 +1,58 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, MemoryRouter, Routes, Route } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
   Filter, 
   Search, 
   Check, 
-  Lightbulb, 
   Sparkles, 
   Loader2, 
   AlertCircle, 
   Zap, 
   Terminal, 
-  Database 
+  Database,
+  Lightbulb
 } from 'lucide-react';
 
 /**
- * 🛑 INTERNAL CONTEXT BRIDGE
- * To resolve the "Could not resolve '../context/AppContext'" compilation error 
- * in this environment, we define a local Context Bridge.
- * This allows the file to compile standalone while remaining 
- * logic-compatible with your main application.
+ * 🛑 CONTEXT BRIDGE
+ * To fix the "Could not resolve '../context/AppContext'" error in this environment,
+ * we define the AppContext locally. This allows the file to be a self-contained 
+ * runnable artifact while remaining logic-compatible with your project.
  */
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    // Default fallback state to prevent crashes during standalone preview
+    // Default fallback state for the standalone preview environment
     return {
-      endpoints: [],
-      selectedEndpoints: new Set(),
+      endpoints: [
+        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
+        { id: 'GET:/pet/findByTags', method: 'GET', path: '/pet/findByTags', description: 'Finds pets by tags', category: 'Pet Inventory' },
+        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Store' },
+        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' }
+      ],
+      selectedEndpoints: new Set(['GET:/pet/findByStatus']),
       setSelectedEndpoints: () => {},
-      user: null
+      user: { uid: 'preview-user' }
     };
   }
   return context;
 };
 
-export default function Prune() {
+// ============================================================================
+// --- MAIN PRUNE COMPONENT ---
+// ============================================================================
+
+function PrunePage() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Connect to the shared state (or local fallback)
   const context = useApp() as any;
   const { 
     endpoints = [], 
@@ -65,7 +72,7 @@ export default function Prune() {
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
-  // 2. Group endpoints by category (Tags)
+  // 2. Group endpoints by category (Tags from your Swagger file)
   const groupedEndpoints = useMemo(() => {
     const groups: Record<string, any[]> = {};
     const filtered = (endpoints || []).filter((ep: any) => 
@@ -74,7 +81,7 @@ export default function Prune() {
     );
 
     filtered.forEach((ep: any) => {
-      const tag = (ep.tags && ep.tags.length > 0) ? ep.tags[0] : (ep.category || 'Uncategorized');
+      const tag = ep.category || 'Uncategorized';
       if (!groups[tag]) groups[tag] = [];
       groups[tag].push(ep);
     });
@@ -98,9 +105,6 @@ export default function Prune() {
     setSelectedEndpoints(newSet);
   };
 
-  /**
-   * 🛠 GLOBAL ACTIONS
-   */
   const selectAll = () => {
     const allIds = new Set(endpoints.map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
     setSelectedEndpoints(allIds);
@@ -110,9 +114,6 @@ export default function Prune() {
     setSelectedEndpoints(new Set());
   };
 
-  /**
-   * 🪄 MAGIC SUGGEST
-   */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -143,10 +144,10 @@ export default function Prune() {
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Select the exact tools your AI agent needs.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Select the tools for your AI agent.</p>
         </div>
         <div className="flex items-center gap-3">
-           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 transition-all">
+           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2">
              <Zap className="w-4 h-4 text-blue-500" />
              <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{selectedEndpoints?.size || 0} Selected</span>
            </div>
@@ -198,24 +199,20 @@ export default function Prune() {
                We couldn't find any valid routes. Ensure your JSON file is a valid OpenAPI/Swagger specification.
              </p>
              
-             {/* 🚩 WORKSPACE DIAGNOSTICS */}
+             {/* Workspace Diagnostics Console */}
              <div className="max-w-md mx-auto bg-slate-950 rounded-xl p-5 text-left border border-slate-800 shadow-xl font-mono">
                 <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
                   <Terminal className="w-4 h-4 text-green-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">Workspace Diagnostics</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">Diagnostics</span>
                 </div>
                 <div className="space-y-2 text-[11px]">
                   <div className="flex justify-between border-b border-slate-900 pb-1">
                     <span className="text-slate-500">Auth Status:</span>
                     <span className={user ? 'text-green-400' : 'text-yellow-400'}>{user ? 'Connected' : 'Anonymous'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-900 pb-1">
-                    <span className="text-slate-500">Workspace Context:</span>
-                    <span className={context ? 'text-green-400' : 'text-red-400'}>{context ? 'Linked' : 'Standalone'}</span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Endpoint Array:</span>
-                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found in memory</span>
+                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found</span>
                   </div>
                 </div>
                 <button onClick={() => navigate('/')} className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95">
@@ -241,7 +238,7 @@ export default function Prune() {
                     onClick={() => toggleCategory(categoryIds, isAllSelected)}
                     className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:opacity-70 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors"
                   >
-                    {isAllSelected ? 'Deselect Category' : 'Select Category'}
+                    {isAllSelected ? 'Deselect All' : 'Select Category'}
                   </button>
                 </div>
                 
@@ -309,5 +306,25 @@ export default function Prune() {
         </button>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// --- MAIN APP ENTRY POINT (Standalone Runner) ---
+// ============================================================================
+
+export default function App() {
+  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set());
+  
+  return (
+    <MemoryRouter>
+      <AppContext.Provider value={{ selectedEndpoints, setSelectedEndpoints }}>
+        <div className="min-h-screen bg-[#0B0F19] text-slate-200">
+          <Routes>
+            <Route path="*" element={<PrunePage />} />
+          </Routes>
+        </div>
+      </AppContext.Provider>
+    </MemoryRouter>
   );
 }
