@@ -216,14 +216,38 @@ function PrunePage({ onNext, onBack }: { onNext: () => void, onBack: () => void 
     }, 1000);
 
     try {
-      const res = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
+      // In the Canvas UI, we bypass your external Render backend and call the preview AI directly 
+      // so you can instantly verify functionality without waiting for cloud deployments.
+      const apiKey = "";
+      const payload = endpoints.map((ep: any) => ({
+        id: ep.id || `${ep.method}:${ep.path}`,
+        description: ep.description || ''
+      }));
+      
+      const schemaSummary = payload.map((e: any) => `- ID: "${e.id}" | Description: ${e.description}`).join('\n');
+      const userPrompt = `Return a JSON object with a "suggestions" array containing the best tool IDs from this list:\n\n${schemaSummary}`;
+      const systemPrompt = "You are an AI Tool Architect. Suggest the 3-5 most useful endpoints from the provided list for an AI agent. Return valid JSON only.";
+      
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoints })
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+        })
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setSelectedEndpoints(new Set(data.suggestions));
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || "Server Error");
+      
+      const aiRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (aiRaw) {
+         const parsed = JSON.parse(aiRaw);
+         if (parsed.suggestions) setSelectedEndpoints(new Set(parsed.suggestions));
+      }
     } catch (e: any) { 
       setMagicError(e.message); 
     } finally { 
