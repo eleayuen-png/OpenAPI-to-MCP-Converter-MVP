@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
-import { useNavigate, MemoryRouter, Routes, Route } from 'react-router';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -16,50 +16,30 @@ import {
 } from 'lucide-react';
 
 /**
- * 🛑 CONTEXT BRIDGE
- * To fix the "Could not resolve '../context/AppContext'" error in this environment,
- * we define the AppContext locally. This allows the file to be a self-contained 
- * runnable artifact while remaining logic-compatible with your project.
+ * 🚀 CRITICAL FIXES:
+ * 1. Router Fix: Removed the nested <MemoryRouter> wrapper that was crashing your app.
+ * 2. Real Data Reconnected: We are strictly importing your real AppContext 
+ * (with the explicit .tsx extension to bypass any strict bundler resolution issues).
+ * This ensures your uploaded endpoints appear instantly!
  */
-const AppContext = createContext<any>(null);
+// @ts-ignore
+import { useApp } from '../context/AppContext.tsx';
 
-const useApp = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    // Default fallback state for the standalone preview environment
-    return {
-      endpoints: [
-        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
-        { id: 'GET:/pet/findByTags', method: 'GET', path: '/pet/findByTags', description: 'Finds pets by tags', category: 'Pet Inventory' },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Store' },
-        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' }
-      ],
-      selectedEndpoints: new Set(['GET:/pet/findByStatus']),
-      setSelectedEndpoints: () => {},
-      user: { uid: 'preview-user' }
-    };
-  }
-  return context;
-};
-
-// ============================================================================
-// --- MAIN PRUNE COMPONENT ---
-// ============================================================================
-
-function PrunePage() {
+export default function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Use the actual application context
   const context = useApp() as any;
   const { 
     endpoints = [], 
     selectedEndpoints = new Set(), 
     setSelectedEndpoints,
     user 
-  } = context;
+  } = context || {};
 
   // 1. Magic Suggest Timer logic
   useEffect(() => {
@@ -106,7 +86,7 @@ function PrunePage() {
   };
 
   const selectAll = () => {
-    const allIds = new Set(endpoints.map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
+    const allIds = new Set((endpoints || []).map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
     setSelectedEndpoints(allIds);
   };
 
@@ -147,7 +127,7 @@ function PrunePage() {
           <p className="text-slate-500 dark:text-slate-400 font-medium">Select the tools for your AI agent.</p>
         </div>
         <div className="flex items-center gap-3">
-           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2">
+           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 transition-all">
              <Zap className="w-4 h-4 text-blue-500" />
              <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{selectedEndpoints?.size || 0} Selected</span>
            </div>
@@ -212,7 +192,7 @@ function PrunePage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Endpoint Array:</span>
-                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found</span>
+                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found in memory</span>
                   </div>
                 </div>
                 <button onClick={() => navigate('/')} className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95">
@@ -238,7 +218,7 @@ function PrunePage() {
                     onClick={() => toggleCategory(categoryIds, isAllSelected)}
                     className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:opacity-70 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors"
                   >
-                    {isAllSelected ? 'Deselect All' : 'Select Category'}
+                    {isAllSelected ? 'Deselect Category' : 'Select Category'}
                   </button>
                 </div>
                 
@@ -256,17 +236,17 @@ function PrunePage() {
                           {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
                         </div>
                         <div className={`px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
-                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200' : 
-                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200' : 
-                          'bg-amber-100 text-amber-700 border-amber-200'
+                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' : 
+                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' : 
+                          'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
                         }`}>
                           {ep.method.toUpperCase()}
                         </div>
-                        <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
+                        <div className="flex-1 font-mono text-[11px] sm:text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
                           {ep.path}
                         </div>
                         <div className="hidden sm:block flex-1 text-[11px] text-slate-500 italic truncate text-right">
-                          {ep.description || ep.summary || 'No description provided'}
+                          {ep.description || 'No description provided'}
                         </div>
                       </div>
                     );
@@ -306,25 +286,5 @@ function PrunePage() {
         </button>
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-// --- MAIN APP ENTRY POINT (Standalone Runner) ---
-// ============================================================================
-
-export default function App() {
-  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set());
-  
-  return (
-    <MemoryRouter>
-      <AppContext.Provider value={{ selectedEndpoints, setSelectedEndpoints }}>
-        <div className="min-h-screen bg-[#0B0F19] text-slate-200">
-          <Routes>
-            <Route path="*" element={<PrunePage />} />
-          </Routes>
-        </div>
-      </AppContext.Provider>
-    </MemoryRouter>
   );
 }
