@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { 
   Zap, 
@@ -10,9 +10,9 @@ import {
 } from 'lucide-react';
 
 // @ts-ignore
-import { useApp } from '../context/AppContext.tsx';
+import { useApp } from '../context/AppContext';
 // @ts-ignore
-import { UpgradeModal } from '../components/UpgradeModal.tsx';
+import { UpgradeModal } from '../components/UpgradeModal';
 
 export default function MacroTools() {
   const navigate = useNavigate();
@@ -28,6 +28,13 @@ export default function MacroTools() {
   } = context;
 
   const [activeMacroId, setActiveMacroId] = useState<string | null>(null);
+
+  // Automatically pop up the upgrade modal when arriving on the page if not Pro
+  useEffect(() => {
+    if (!isPro) {
+      setShowUpgradeModal(true);
+    }
+  }, [isPro]);
 
   const availableEndpoints = endpoints.filter((ep: any) => 
     selectedEndpoints.has(`${ep.method}:${ep.path}`)

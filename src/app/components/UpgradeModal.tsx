@@ -15,7 +15,7 @@ export function UpgradeModal({ isOpen, onClose, featureName }: UpgradeModalProps
   if (!isOpen) return null;
 
   const handleUpgradeClick = async () => {
-    // If they are anonymous, force them to create a permanent account first so we don't lose their subscription!
+    // If they are anonymous, force them to create a permanent account first!
     if (user?.isAnonymous) {
       await loginWithGoogle();
       return;
@@ -43,10 +43,12 @@ export function UpgradeModal({ isOpen, onClose, featureName }: UpgradeModalProps
           </div>
           
           <h2 className="relative z-10 text-2xl font-bold text-white mb-2 tracking-tight">
-            Unlock {featureName}
+            {user?.isAnonymous ? "Sign in to unlock Pro features" : `Unlock ${featureName}`}
           </h2>
           <p className="relative z-10 text-blue-100 text-sm max-w-xs mx-auto">
-            Upgrade to MCP Studio Pro to empower your AI agents with advanced enterprise features.
+            {user?.isAnonymous 
+              ? "Create an account to save your macros and access enterprise tools."
+              : "Upgrade to MCP Studio Pro to empower your AI agents with advanced enterprise features."}
           </p>
 
           {/* Decorative background shapes */}
@@ -88,12 +90,12 @@ export function UpgradeModal({ isOpen, onClose, featureName }: UpgradeModalProps
             onClick={handleUpgradeClick}
             className="w-full py-3.5 bg-[#141B41] dark:bg-blue-600 hover:bg-[#1a2352] dark:hover:bg-blue-700 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            {user?.isAnonymous ? 'Sign in to Upgrade' : 'Upgrade to Pro - $19/mo'}
+            {user?.isAnonymous ? 'Sign in with Google' : 'Upgrade to Pro - $19/mo'}
             <Sparkles className="h-4 w-4" />
           </button>
           
           <p className="text-center text-xs text-slate-400 mt-4">
-            Secure payment powered by Stripe.
+            Secure authentication and payment logic.
           </p>
         </div>
       </div>
