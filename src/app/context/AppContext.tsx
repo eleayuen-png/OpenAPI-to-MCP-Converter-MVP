@@ -82,6 +82,7 @@ interface AppContextType {
   isInitialLoad: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  resetWorkspace: () => Promise<void>; // 🧹 Added for cache invalidation
 }
 
 // 🚀 YOUR FIREBASE CONFIGURATION
@@ -172,10 +173,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.selectedEndpoints) setSelectedEndpointsState(new Set(data.selectedEndpoints));
         if (data.macros) setMacrosState(data.macros);
         if (data.credentials) setCredentialsState(data.credentials);
-        if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
+        if (data.deploymentInfo !== undefined) setDeploymentInfoState(data.deploymentInfo); // Handle null explicitly
         if (data.piiMasking !== undefined) setPiiMaskingState(data.piiMasking);
         if (data.isPro !== undefined) setIsProState(data.isPro);
-        if (data.targetBaseUrl) setTargetBaseUrlState(data.targetBaseUrl);
+        if (data.targetBaseUrl !== undefined) setTargetBaseUrlState(data.targetBaseUrl);
         
         if (data.logs) {
           setLogsState(data.logs.map((l: any) => {
@@ -217,11 +218,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await setDoc(projectDocRef, cleanData, { merge: true });
       console.log("💾 Cloud Save Successful:", Object.keys(cleanData));
     } catch (error: any) {
-      console.warn("⚠️ Cloud Save Failed (likely permission sync issue):", error.message);
+      console.warn("⚠️ Cloud Save Failed:", error.message);
     }
   };
 
-  // 4. Enhanced Logging logic (Sub-collection)
+  /**
+   * 🧹 RESET WORKSPACE
+   * Clears project-specific state to allow a fresh deployment.
+   * Called when a new file is uploaded to prevent stale key issues.
+   */
+  const resetWorkspace = async () => {
+    console.log("🧹 Wiping stale project data...");
+    
+    // 1. Reset local state
+    setEndpointsState([]);
+    setSelectedEndpointsState(new Set());
+    setMacrosState([]);
+    setDeploymentInfoState(null); // CRITICAL FIX
+    setTargetBaseUrlState('');
+
+    // 2. Sync to Firestore (Force overwrite values to clear cache)
+    if (user && db) {
+      try {
+        const projectDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
+        await setDoc(projectDocRef, {
+          endpoints: [],
+          selectedEndpoints: [],
+          macros: [],
+          deploymentInfo: null,
+          targetBaseUrl: ''
+        }, { merge: true });
+        console.log("✅ Cloud workspace reset.");
+      } catch (e: any) {
+        console.warn("⚠️ Reset sync failed:", e.message);
+      }
+    }
+  };
+
+  // 4. Enhanced Logging logic
   const addLog = async (log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     if (!user || !db) return;
     
@@ -238,7 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await addDoc(logsColRef, logData);
       syncToCloud({ logs: [logData, ...logs].slice(0, 10) });
     } catch (e: any) {
-      console.warn("⚠️ Failed to save enhanced log to cloud. Proceeding locally.", e.message);
+      console.warn("⚠️ Log failed:", e.message);
     }
   };
 
@@ -254,17 +288,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user?.isAnonymous) {
         try {
           await linkWithCredential(user, credential);
-          console.log("🔗 Guest account successfully linked to Google.");
+          console.log("🔗 Guest account linked.");
         } catch (linkError: any) {
           if (linkError.code === 'auth/credential-already-in-use') {
-            console.warn("⚠️ Google account already exists. Switching to that account instead of linking.");
             await signInWithCredential(auth, credential);
-            
-            // Add a local log, no need to await cloud sync if it might fail mid-auth
-            setLogsState(prev => [{
-              id: Math.random().toString(), timestamp: new Date(), level: 'info' as const,
-              endpoint: 'Auth', statusCode: 200, message: "Signed in to existing Google account."
-            }, ...prev].slice(0, 50));
           } else {
             throw linkError;
           }
@@ -272,21 +299,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (e: any) {
       console.error("Auth Error:", e);
-      
-      let friendlyMessage = `Authentication failed: ${e.message}`;
-      
-      // Handle Sandbox & Configuration Errors Gracefully
-      if (e.message.includes('Cross-Origin') || e.code === 'auth/popup-blocked') {
-        friendlyMessage = "Popup blocked by preview environment. Please test Google Auth on your deployed live site.";
-      } else if (e.message.includes('400') || e.code === 'auth/internal-error') {
-        friendlyMessage = "Firebase Config Error: Set a 'Support Email' in Firebase Project Settings (General tab) to use Google Auth.";
-      }
-
-      // Add to local state immediately so user sees it even if cloud permissions fail
-      setLogsState(prev => [{
-        id: Math.random().toString(), timestamp: new Date(), level: 'error' as const,
-        endpoint: 'Auth', statusCode: 400, message: friendlyMessage
-      }, ...prev].slice(0, 50));
     }
   };
 
@@ -322,7 +334,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     isInitialLoad,
     loginWithGoogle,
-    logout
+    logout,
+    resetWorkspace
   };
 
   return (

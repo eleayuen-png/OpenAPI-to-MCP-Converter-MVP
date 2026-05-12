@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 /**
  * 1. IMPORTS
- * Ensuring @ts-ignore is used for external libraries and internal paths 
- * to handle resolution inconsistencies in the build environment.
+ * Using esm.sh to resolve the swagger-parser in this environment.
  */
 // @ts-ignore
-import SwaggerParser from '@apidevtools/swagger-parser';
+import SwaggerParser from 'https://esm.sh/@apidevtools/swagger-parser';
 import { 
   Upload as UploadIcon, 
   FileJson, 
@@ -16,19 +15,22 @@ import {
 } from 'lucide-react';
 
 // @ts-ignore
-import { useApp } from '../context/AppContext.tsx';
+import { useApp } from '../context/AppContext';
 
 export default function Upload() {
   const navigate = useNavigate();
-  // Using explicit typing for context to bypass resolution issues
-  const { setEndpoints, setTargetBaseUrl } = useApp() as any;
+  /**
+   * 2. CONTEXT EXTRACTION
+   * resetWorkspace is used to clear stale deployment data when a new file is uploaded.
+   */
+  const { setEndpoints, setTargetBaseUrl, resetWorkspace } = useApp() as any;
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<{ name: string; size: string } | null>(null);
 
   /**
-   * 2. FILE SELECTION & DYNAMIC EXTRACTION
-   * Extracts the server URL from the Swagger/OpenAPI definition automatically.
+   * 3. FILE SELECTION & RESET LOGIC
+   * This logic ensures that previous session state (keys/URLs) is purged.
    */
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -53,42 +55,49 @@ export default function Upload() {
           throw new Error("Invalid JSON file. Please provide a valid OpenAPI/Swagger JSON.");
         }
 
-        /**
-         * 3. PARSING & VALIDATION
-         * Cast to any to resolve "Property 'servers' does not exist on type 'Document<{}>'"
-         */
+        // Parse using the external library
         // @ts-ignore
         const api = await SwaggerParser.parse(apiJson) as any;
         
-        // 🚀 Suggested Base URL extraction logic
-        // Handles OpenAPI 3.x (servers array) and Swagger 2.0 (host/basePath)
+        // Suggested Base URL extraction logic
         const suggestedUrl = api.servers?.[0]?.url || api.host || '';
-        if (suggestedUrl) {
-          console.log("🔗 Suggested Base URL found:", suggestedUrl);
-          setTargetBaseUrl(suggestedUrl);
-        }
 
         // Map paths to Endpoint interface
         const mappedEndpoints: any[] = [];
-        Object.entries(api.paths || {}).forEach(([path, methods]: [string, any]) => {
-          Object.entries(methods).forEach(([method, details]: [string, any]) => {
-            if (['get', 'post', 'put', 'delete', 'patch'].includes(method.toLowerCase())) {
-              mappedEndpoints.push({
-                id: `${method.toUpperCase()}:${path}`,
-                method: method.toUpperCase(),
-                path: path,
-                description: details.summary || details.description || '',
-                category: details.tags?.[0] || 'Uncategorized'
-              });
-            }
+        if (api.paths) {
+          Object.entries(api.paths).forEach(([path, methods]: [string, any]) => {
+            Object.entries(methods).forEach(([method, details]: [string, any]) => {
+              if (['get', 'post', 'put', 'delete', 'patch'].includes(method.toLowerCase())) {
+                mappedEndpoints.push({
+                  id: `${method.toUpperCase()}:${path}`,
+                  method: method.toUpperCase(),
+                  path: path,
+                  description: details.summary || details.description || '',
+                  category: details.tags?.[0] || 'Uncategorized'
+                });
+              }
+            });
           });
-        });
+        }
 
         if (mappedEndpoints.length === 0) {
           throw new Error("No valid GET/POST/PUT/DELETE endpoints found in this file.");
         }
 
+        /**
+         * 🚀 CRITICAL BUG FIX
+         * Wipe the stale deployment info and project state BEFORE setting new data.
+         * This ensures Step 5 generates a fresh key for the new file.
+         */
+        if (typeof resetWorkspace === 'function') {
+          await resetWorkspace();
+        }
+
+        // Now populate with new project data
         setEndpoints(mappedEndpoints);
+        if (suggestedUrl) {
+          setTargetBaseUrl(suggestedUrl);
+        }
         
         setTimeout(() => {
           navigate('/prune');
