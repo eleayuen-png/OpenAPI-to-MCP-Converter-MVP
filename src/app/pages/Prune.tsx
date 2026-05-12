@@ -15,21 +15,11 @@ import {
   Lightbulb
 } from 'lucide-react';
 
-/**
- * 🛑 CONTEXT BRIDGE & COMPILATION FIX
- * Removed the external relative import to resolve the esbuild resolution error.
- * Below is a local context bridge populated with your `test-api.json` data
- * so that the UI can successfully render and be tested in this preview environment.
- * * ⚠️ WHEN COPYING TO YOUR REAL PROJECT: 
- * Delete this local `useApp` block and uncomment your real import:
- * import { useApp } from '../context/AppContext';
- */
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    // Fallback state loaded with your specific test-api.json data for preview
     return {
       endpoints: [
         { id: 'PUT:/pet', method: 'PUT', path: '/pet', description: 'Update an existing pet', category: 'Pet Inventory' },
@@ -37,12 +27,9 @@ const useApp = () => {
         { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds Pets by status', category: 'Pet Inventory' },
         { id: 'GET:/pet/findByTags', method: 'GET', path: '/pet/findByTags', description: 'Finds Pets by tags', category: 'Pet Inventory' },
         { id: 'GET:/pet/{petId}', method: 'GET', path: '/pet/{petId}', description: 'Find pet by ID', category: 'Pet Inventory' },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories by status', category: 'Analytics' },
-        { id: 'GET:/store/inventory/report', method: 'GET', path: '/store/inventory/report', description: 'Generate high-level inventory report', category: 'Analytics' },
+        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Analytics' },
         { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Order Management' },
-        { id: 'GET:/store/order/{orderId}', method: 'GET', path: '/store/order/{orderId}', description: 'Find purchase order by ID', category: 'Order Management' },
         { id: 'POST:/user', method: 'POST', path: '/user', description: 'Create user', category: 'User Management' },
-        { id: 'GET:/user/login', method: 'GET', path: '/user/login', description: 'Logs user into the system', category: 'User Management' },
         { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get aggregate sales data', category: 'Analytics' }
       ],
       selectedEndpoints: new Set(['GET:/pet/findByStatus', 'GET:/store/inventory']),
@@ -52,10 +39,6 @@ const useApp = () => {
   }
   return context;
 };
-
-// ============================================================================
-// --- MAIN PRUNE COMPONENT ---
-// ============================================================================
 
 export default function Prune() {
   const navigate = useNavigate();
@@ -72,7 +55,6 @@ export default function Prune() {
     user 
   } = context || {};
 
-  // 1. Magic Suggest Timer logic
   useEffect(() => {
     let interval: any;
     if (isAnalyzing) {
@@ -83,7 +65,6 @@ export default function Prune() {
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
-  // 2. Group endpoints by category
   const groupedEndpoints = useMemo(() => {
     const groups: Record<string, any[]> = {};
     const filtered = (endpoints || []).filter((ep: any) => 
@@ -125,11 +106,6 @@ export default function Prune() {
     setSelectedEndpoints(new Set());
   };
 
-  /**
-   * 🚀 REGION LOCK FIX (Client-Side AI)
-   * Calling the Gemini API directly from the browser using the Canvas Environment proxy.
-   * This bypasses the Render backend entirely, eliminating the "Location not supported" error.
-   */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -139,36 +115,15 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
-      // In the Canvas UI, this empty string signals the environment to inject its own authorized proxy key
-      const apiKey = ""; 
-      
-      const schemaSummary = payload.map((e: any) => `- ID: "${e.id}" | Description: ${e.description}`).join('\n');
-      const systemPrompt = "You are an AI Tool Architect. Suggest the 3-5 most useful endpoints from the provided list for an AI agent. Return valid JSON only.";
-      const userPrompt = `Return a JSON object with a "suggestions" array containing the best tool IDs from this list:\n\n${schemaSummary}`;
-      
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-      
-      const response = await fetch(url, {
+      const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: userPrompt }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { 
-            responseMimeType: "application/json", 
-            temperature: 0.1 
-          }
-        })
+        body: JSON.stringify({ endpoints: payload })
       });
       
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "Server Error");
-      
-      const aiRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiRaw) {
-         const parsed = JSON.parse(aiRaw);
-         if (parsed.suggestions) setSelectedEndpoints(new Set(parsed.suggestions));
-      }
+      if (!response.ok || data.error) throw new Error(data.error || "Server Error");
+      if (data.suggestions) setSelectedEndpoints(new Set(data.suggestions));
     } catch (error: any) {
       setAnalysisError(error.message);
     } finally {
@@ -236,7 +191,6 @@ export default function Prune() {
                We couldn't find any valid routes. Ensure your JSON file is a valid OpenAPI/Swagger specification.
              </p>
              
-             {/* Workspace Diagnostics Console */}
              <div className="max-w-md mx-auto bg-slate-950 rounded-xl p-5 text-left border border-slate-800 shadow-xl font-mono">
                 <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
                   <Terminal className="w-4 h-4 text-green-500" />
