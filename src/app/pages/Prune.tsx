@@ -16,24 +16,21 @@ import {
 } from 'lucide-react';
 
 /**
- * 🛑 PREVIEW BRIDGE
- * To fix the "Could not resolve AppContext" error in this preview environment,
- * we are using a local Mock Context. 
- * * ⚠️ FOR YOUR LOCAL PROJECT (VS CODE):
- * The code below is designed to be copy-pasted. It will try to use your real 
- * AppContext first, and only use the mock if it can't find it.
+ * 🛑 PREVIEW BRIDGE logic
+ * In your local project, the code below will attempt to import your real AppContext.
+ * If it fails (like in this preview environment), it falls back to a mock state
+ * so the UI remains fully interactive for testing.
  */
-
 // @ts-ignore
-import * as RealAppContext from '../context/AppContext';
+import * as AppContextModule from '../context/AppContext';
 
 const useAppBridge = () => {
-  // Local state for the preview environment so buttons work here
+  // Local state for the preview environment so checkboxes work here
   const [localSelection, setLocalSelection] = useState(new Set(['GET:/pet/findByStatus']));
   
   try {
     // Try to use the real context from your project
-    const context = RealAppContext.useApp();
+    const context = AppContextModule.useApp();
     if (context) return context;
   } catch (e) {
     // Fallback data for the browser preview environment
@@ -41,7 +38,8 @@ const useAppBridge = () => {
       endpoints: [
         { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', category: 'Pet Inventory' },
         { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', category: 'Store' },
-        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' }
+        { id: 'POST:/store/order', method: 'POST', path: '/store/order', description: 'Place an order for a pet', category: 'Store' },
+        { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get sales data', category: 'Analytics' }
       ],
       selectedEndpoints: localSelection,
       setSelectedEndpoints: setLocalSelection,
@@ -127,6 +125,7 @@ export default function Prune() {
         description: ep.description || ''
       }));
 
+      // Pointing to your Oregon Render URL
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,7 +134,10 @@ export default function Prune() {
       
       const data = await response.json();
       if (!response.ok || data.error) throw new Error(data.error || "Server Error");
-      if (data.suggestions) setSelectedEndpoints(new Set(data.suggestions));
+      
+      if (data.suggestions) {
+        setSelectedEndpoints(new Set(data.suggestions));
+      }
     } catch (error: any) {
       setAnalysisError(error.message);
     } finally {

@@ -109,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [credentials, setCredentialsState] = useState<ApiCredential[]>([]);
   const [logs, setLogsState] = useState<LogEntry[]>([]);
   const [deploymentInfo, setDeploymentInfoState] = useState<any | null>(null);
-  const [piiMasking, setPiiMaskingState] = useState(false);
+  const [piiMasking, setPiiMaskingState] = useState(false); // 🚩 DEFAULT: FALSE
   const [isPro, setIsProState] = useState(false);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
 
@@ -168,11 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.isPro !== undefined) setIsProState(data.isPro);
         if (data.targetBaseUrl !== undefined) setTargetBaseUrlState(data.targetBaseUrl);
         
-        /**
-         * 🚩 SECURITY FIX: Enforcement
-         * If the user is NOT a pro member, force the PII Masking to FALSE,
-         * even if the database says true.
-         */
+        // 🚩 ENFORCEMENT: Force off if user is not Pro
         const proStatus = !!data.isPro;
         if (data.piiMasking !== undefined) {
            setPiiMaskingState(proStatus ? data.piiMasking : false);
@@ -237,6 +233,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMacrosState([]);
     setDeploymentInfoState(null);
     setTargetBaseUrlState('');
+    setPiiMaskingState(false); // 🚩 RESET LOCALLY
 
     if (user && db) {
       try {
@@ -246,7 +243,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           selectedEndpoints: [],
           macros: [],
           deploymentInfo: null,
-          targetBaseUrl: ''
+          targetBaseUrl: '',
+          piiMasking: false // 🚩 RESET CLOUD
         }, { merge: true });
       } catch (e: any) {
         console.warn("⚠️ Reset sync failed:", e.message);
@@ -324,7 +322,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val || null }); },
     piiMasking,
     setPiiMasking: (val: boolean) => { 
-      // 🚩 ENFORCEMENT: Final safety check before syncing
       const finalVal = isPro ? val : false;
       setPiiMaskingState(finalVal); 
       syncToCloud({ piiMasking: finalVal }); 

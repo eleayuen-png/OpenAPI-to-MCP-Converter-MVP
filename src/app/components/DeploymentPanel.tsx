@@ -17,9 +17,9 @@ import {
  * To fix the resolution errors in this browser preview, we've bundled a local context 
  * and a mock UpgradeModal directly within this file.
  * * ⚠️ FOR YOUR LOCAL PROJECT (VS CODE):
- * When copying this to your real project, delete the "Mock Logic" block 
+ * When copying this to your real project, delete the "Mock Logic" block below 
  * and restore your real imports:
- * import { useApp } from '../context/AppContext';
+ * * import { useApp } from '../context/AppContext';
  * import { UpgradeModal } from './UpgradeModal';
  */
 
@@ -33,7 +33,7 @@ const useApp = () => {
     return {
       selectedEndpoints: new Set(['GET:/pet/findByStatus', 'POST:/pet']),
       targetBaseUrl: 'https://petstore.swagger.io/v2',
-      piiMasking: false,
+      piiMasking: false, // 🚩 DEFAULT: OFF
       setPiiMasking: (v: boolean) => {},
       isPro: false,
       deploymentInfo: null,
@@ -66,7 +66,7 @@ const UpgradeModal = ({ isOpen, onClose, featureName }: any) => {
   );
 };
 
-// --- Main Component ---
+// --- Main Component Implementation ---
 function DeploymentPanelContent() {
   const { 
     selectedEndpoints, 
@@ -112,12 +112,14 @@ function DeploymentPanelContent() {
   };
 
   const copyToClipboard = (text: string) => {
+    // Standard clipboard fallback for iFrame environments
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
     textArea.select();
     document.execCommand('copy');
     document.body.removeChild(textArea);
+    
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -167,7 +169,7 @@ function DeploymentPanelContent() {
             </button>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pr-8">
-            Automatically masks emails, phone numbers, and IP addresses in API responses. {!isPro && <span className="text-blue-500 font-bold ml-1 cursor-pointer hover:underline" onClick={() => setShowUpgradeModal(true)}>Unlock Pro.</span>}
+            Automatically masks emails and phone numbers in API responses. {!isPro && <span className="text-blue-500 font-bold ml-1 cursor-pointer hover:underline" onClick={() => setShowUpgradeModal(true)}>Unlock Pro.</span>}
           </p>
         </div>
 
