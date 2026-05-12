@@ -33,9 +33,8 @@ import {
   Loader2
 } from 'lucide-react';
 
-// --- 1. FIREBASE INITIALIZATION & CONFIG ---
+// --- 1. FIREBASE INITIALIZATION ---
 
-// Your specific Firebase configuration used as fallback
 const localFirebaseConfig = {
   apiKey: "AIzaSyB0Px3NSulFTBj8GeLrET1itIpJJovnN48",
   authDomain: "mcp-studio-22971.firebaseapp.com",
@@ -46,8 +45,6 @@ const localFirebaseConfig = {
   measurementId: "G-8HBCC81VHB"
 };
 
-// Global variables provided by the environment
-// IMPORTANT: Use 'var' instead of 'const' to allow declaration merging across multiple files
 declare global {
   var __firebase_config: string | undefined;
   var __app_id: string | undefined;
@@ -118,8 +115,8 @@ export function useApp() {
 export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean, onClose: () => void, featureName: string }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#111827] rounded-3xl w-full max-w-md p-8 shadow-2xl border border-slate-200 dark:border-slate-800 scale-in-center">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#111827] rounded-3xl w-full max-w-md p-8 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
         <div className="flex justify-between items-start mb-6">
           <div className="w-12 h-12 bg-blue-900/20 rounded-2xl flex items-center justify-center">
             <Zap className="h-6 w-6 text-blue-400 fill-blue-400" />
@@ -128,11 +125,11 @@ export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean
             <X className="h-5 w-5 text-slate-400" />
           </button>
         </div>
-        <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Upgrade to Pro</h3>
-        <p className="text-slate-400 mb-8 leading-relaxed">
-          The <span className="font-semibold text-slate-200">{featureName}</span> feature is exclusive to MCP Studio Pro users.
+        <h3 className="text-2xl font-bold text-[#141B41] dark:text-white mb-2">Upgrade to Pro</h3>
+        <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+          The <span className="font-semibold text-[#141B41] dark:text-slate-200">{featureName}</span> feature is exclusive to MCP Studio Pro users.
         </p>
-        <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]">
+        <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
           Upgrade Now — $19/mo
           <ArrowRight className="h-4 w-4" />
         </button>
@@ -146,8 +143,8 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
-    <div className="bg-[#111827] rounded-2xl border border-slate-800 p-8 sm:p-12 text-center transition-colors shadow-sm">
-      <div className="w-20 h-20 bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+    <div className="bg-[#111827] rounded-2xl border border-slate-800 p-8 sm:p-12 text-center transition-colors shadow-sm flex flex-col items-center">
+      <div className="w-20 h-20 bg-blue-900/20 rounded-full flex items-center justify-center mb-6">
         <Server className="h-10 w-10 text-blue-400" />
       </div>
       <h2 className="text-2xl font-semibold text-white mb-4 tracking-tight">Ready to Deploy</h2>
@@ -165,7 +162,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
         )}
       </div>
 
-      <div className="max-w-md mx-auto mb-8 space-y-6 text-left">
+      <div className="w-full max-w-md mb-8 space-y-6 text-left">
         <div>
           <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 block">API Base URL</label>
           <input 
@@ -180,7 +177,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
         <div className={`p-4 rounded-xl border transition-all ${piiMasking ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-900/50 border-slate-800'}`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              {piiMasking ? <Shield className="w-4 h-4 text-blue-400" /> : <ShieldAlert className="w-4 h-4 text-slate-500" />}
+              <Shield className={`w-4 h-4 ${piiMasking ? 'text-blue-400' : 'text-slate-500'}`} />
               <span className="font-bold text-xs uppercase tracking-wider text-slate-200">PII Redaction</span>
             </div>
             <button 
@@ -190,14 +187,15 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
               <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${piiMasking ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
-          <p className="text-[10px] text-slate-500">Automatically masks emails and phone numbers in API responses.</p>
+          <p className="text-[10px] text-slate-500">Automatically masks emails and phone numbers in API responses. {!isPro && <span className="text-blue-500 font-bold ml-1">PRO</span>}</p>
         </div>
       </div>
 
+      {/* Button centered via container flex-col items-center */}
       <button 
         onClick={onDeploy} 
         disabled={isDeploying || selectedEndpoints.size === 0 || !baseUrl.trim() || syncing} 
-        className="w-full max-w-md px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
+        className="w-full max-w-md px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95"
       >
         {isDeploying ? <><Loader2 className="w-4 h-4 animate-spin" /> Deploying Gateway...</> : 'Deploy MCP Server'}
       </button>
@@ -281,12 +279,11 @@ export function Deploy() {
     try {
       const selectedDetails = endpoints.filter(ep => selectedEndpoints.has(`${ep.method}:${ep.path}`));
       
-      // Update persistent project state in Firestore (Rule 1)
-      const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', 'current-project');
+      // Update persistent project state (Strict Path Rule 1)
+      const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
       await updateDoc(projectRef, { 
-        piiRedaction: !!piiMasking, 
-        baseUrl: baseUrl.trim(),
-        lastDeployed: new Date().toISOString()
+        piiMasking: !!piiMasking, 
+        targetBaseUrl: baseUrl.trim()
       });
       
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
@@ -299,12 +296,12 @@ export function Deploy() {
         })
       });
       
-      if (!response.ok) throw new Error("Gateway deployment failed. Please check backend logs.");
+      if (!response.ok) throw new Error("Gateway deployment failed. Check connectivity.");
       
       const data = await response.json();
       setDeploymentInfo({ 
         serverUrl: data.sseUrl, 
-        apiKey: 'secure-vault-key', 
+        apiKey: 'vault-key', 
         piiMasking: !!piiMasking 
       });
       
@@ -335,7 +332,7 @@ export function Deploy() {
   );
 }
 
-// --- 6. ROOT APPLICATION (SINGLE-FILE WRAPPER) ---
+// --- 6. ROOT APPLICATION ---
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -346,8 +343,8 @@ export default function App() {
   const [targetBaseUrl, setTargetBaseUrl] = useState('');
   const [syncing, setSyncing] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isPro, setIsPro] = useState(false);
 
-  // Auth Effect (Rule 3)
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -367,29 +364,34 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Data Fetching Effect
   useEffect(() => {
     if (!user || !db) return;
     setSyncing(true);
-    const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', 'current-project');
+    // CRITICAL: Using User-Specific Path to fix permission errors
+    const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     
     const unsubscribe = onSnapshot(projectRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        if (data.baseUrl) setTargetBaseUrl(data.baseUrl);
-        if (data.piiRedaction !== undefined) setPiiMasking(data.piiRedaction);
+        if (data.targetBaseUrl) setTargetBaseUrl(data.targetBaseUrl);
+        if (data.piiMasking !== undefined) setPiiMasking(data.piiMasking);
+        if (data.isPro !== undefined) setIsPro(data.isPro);
         
-        if (data.selectedEndpoints) {
-          const selection = new Set<string>();
-          Object.entries(data.selectedEndpoints).forEach(([k, v]) => { if (v) selection.add(k); });
-          setSelectedEndpoints(selection);
+        // Correcting selection count (Handle array from Firestore)
+        if (Array.isArray(data.selectedEndpoints)) {
+          setSelectedEndpoints(new Set(data.selectedEndpoints));
+        } else if (data.selectedEndpoints && typeof data.selectedEndpoints === 'object') {
+           const selection = new Set<string>();
+           Object.entries(data.selectedEndpoints).forEach(([k, v]) => { if (v) selection.add(k); });
+           setSelectedEndpoints(selection);
         }
         
         if (data.endpoints) setEndpoints(data.endpoints);
+        if (data.deploymentInfo) setDeploymentInfo(data.deploymentInfo);
       }
       setSyncing(false);
     }, (err) => {
-      console.error("Data sync error", err);
+      console.error("Data sync error (permissions?):", err);
       setSyncing(false);
     });
 
@@ -398,12 +400,12 @@ export default function App() {
 
   const resetWorkspace = async () => {
     if (!user || !db) return;
-    const projectRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', 'current-project');
+    const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     await setDoc(projectRef, {
       endpoints: [],
-      selectedEndpoints: {},
-      baseUrl: '',
-      piiRedaction: false,
+      selectedEndpoints: [],
+      targetBaseUrl: '',
+      piiMasking: false,
       deploymentInfo: null
     }, { merge: true });
     setEndpoints([]);
@@ -414,7 +416,7 @@ export default function App() {
 
   const contextValue = { 
     endpoints, setEndpoints, selectedEndpoints, setSelectedEndpoints, deploymentInfo, setDeploymentInfo, 
-    piiMasking, setPiiMasking, isPro: true, targetBaseUrl, setTargetBaseUrl, syncing, user, resetWorkspace 
+    piiMasking, setPiiMasking, isPro, targetBaseUrl, setTargetBaseUrl, syncing, user, resetWorkspace 
   };
 
   if (isInitialLoad) {
@@ -428,7 +430,7 @@ export default function App() {
 
   return (
     <AppContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-blue-500/30">
+      <div className="min-h-screen bg-[#020617] text-slate-200">
         <Deploy />
       </div>
     </AppContext.Provider>
