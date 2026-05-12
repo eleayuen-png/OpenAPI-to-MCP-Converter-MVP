@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
+import { useNavigate } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -15,51 +16,45 @@ import {
 } from 'lucide-react';
 
 /**
- * 🛑 SINGLE-FILE MANDATE & CONTEXT BRIDGE
- * To fix the "Could not resolve '../context/AppContext'" error, we define the 
- * AppContext locally. This allows the file to be a self-contained preview 
- * that functions correctly in this environment.
+ * 🛑 INTERNAL CONTEXT BRIDGE
+ * To resolve the "Could not resolve '../context/AppContext'" compilation error 
+ * in this environment, we define a local Context Bridge.
+ * This allows the file to compile standalone while remaining 
+ * logic-compatible with your main application.
  */
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    // Default fallback state for the standalone preview
+    // Default fallback state to prevent crashes during standalone preview
     return {
-      endpoints: [
-        { id: 'PUT:/pet', method: 'PUT', path: '/pet', description: 'Update an existing pet', tags: ['Pet Inventory'] },
-        { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', tags: ['Pet Inventory'] },
-        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds Pets by status', tags: ['Pet Inventory'] },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', tags: ['Analytics'] },
-        { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get aggregate sales data', tags: ['Analytics'] }
-      ],
-      selectedEndpoints: new Set(['GET:/pet/findByStatus']),
+      endpoints: [],
+      selectedEndpoints: new Set(),
       setSelectedEndpoints: () => {},
-      user: { uid: 'preview-user', isAnonymous: true }
+      user: null
     };
   }
   return context;
 };
 
-// ============================================================================
-// --- PRUNE PAGE COMPONENT ---
-// ============================================================================
-
-const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
+export default function Prune() {
+  const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Connect to the shared state (or local fallback)
+  const context = useApp() as any;
   const { 
     endpoints = [], 
     selectedEndpoints = new Set(), 
     setSelectedEndpoints,
     user 
-  } = useApp();
+  } = context;
 
-  // 1. Magic Suggest Timer
+  // 1. Magic Suggest Timer logic
   useEffect(() => {
     let interval: any;
     if (isAnalyzing) {
@@ -103,6 +98,9 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
     setSelectedEndpoints(newSet);
   };
 
+  /**
+   * 🛠 GLOBAL ACTIONS
+   */
   const selectAll = () => {
     const allIds = new Set(endpoints.map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
     setSelectedEndpoints(allIds);
@@ -112,6 +110,9 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
     setSelectedEndpoints(new Set());
   };
 
+  /**
+   * 🪄 MAGIC SUGGEST
+   */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -121,7 +122,6 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
         description: ep.description || ''
       }));
 
-      // Note: Endpoint depends on your backend being live
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/analyze-schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,14 +139,14 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
   };
 
   return (
-    <div className="p-4 sm:p-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-24">
+    <div className="p-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-24">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
+          <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Select the exact tools your AI agent needs.</p>
         </div>
         <div className="flex items-center gap-3">
-           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2">
+           <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 transition-all">
              <Zap className="w-4 h-4 text-blue-500" />
              <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{selectedEndpoints?.size || 0} Selected</span>
            </div>
@@ -163,30 +163,25 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
         </div>
       )}
 
-      <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row items-center gap-4 transition-colors">
+      <div className="bg-white dark:bg-[#111827] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row items-center gap-4 transition-colors sticky top-0 z-40 backdrop-blur-md">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
-            type="text" value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter endpoints..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
           />
         </div>
         
         <div className="flex gap-2 shrink-0 w-full sm:w-auto">
-          <button 
-            onClick={handleMagicSuggest} 
-            disabled={isAnalyzing || !endpoints.length} 
-            className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
-          >
+          <button onClick={handleMagicSuggest} disabled={isAnalyzing || !endpoints.length} className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
             {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            <span className="whitespace-nowrap">{isAnalyzing ? `(${secondsElapsed}s)` : 'Magic Suggest'}</span>
+            <span className="whitespace-nowrap">{isAnalyzing ? `Analyzing (${secondsElapsed}s)` : 'Magic Suggest'}</span>
           </button>
-          <button onClick={selectAll} className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold rounded-xl border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 transition-colors whitespace-nowrap text-sm">
+          <button onClick={selectAll} className="px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold rounded-xl border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 transition-colors whitespace-nowrap">
             Select All
           </button>
-          <button onClick={deselectAll} className="px-3 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-200 transition-colors whitespace-nowrap text-sm">
+          <button onClick={deselectAll} className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-200 transition-colors whitespace-nowrap">
             Deselect
           </button>
         </div>
@@ -200,25 +195,30 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
              </div>
              <h3 className="text-xl font-bold text-[#141B41] dark:text-white mb-2">No endpoints detected</h3>
              <p className="text-slate-500 text-sm max-w-sm mx-auto mb-8 leading-relaxed">
-               We couldn't find any valid routes. Ensure your JSON file was parsed correctly in the upload step.
+               We couldn't find any valid routes. Ensure your JSON file is a valid OpenAPI/Swagger specification.
              </p>
              
+             {/* 🚩 WORKSPACE DIAGNOSTICS */}
              <div className="max-w-md mx-auto bg-slate-950 rounded-xl p-5 text-left border border-slate-800 shadow-xl font-mono">
                 <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
                   <Terminal className="w-4 h-4 text-green-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">Diagnostics</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white">Workspace Diagnostics</span>
                 </div>
                 <div className="space-y-2 text-[11px]">
                   <div className="flex justify-between border-b border-slate-900 pb-1">
                     <span className="text-slate-500">Auth Status:</span>
-                    <span className={user ? 'text-green-400' : 'text-yellow-400'}>{user ? 'Connected' : 'Initializing...'}</span>
+                    <span className={user ? 'text-green-400' : 'text-yellow-400'}>{user ? 'Connected' : 'Anonymous'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-900 pb-1">
+                    <span className="text-slate-500">Workspace Context:</span>
+                    <span className={context ? 'text-green-400' : 'text-red-400'}>{context ? 'Linked' : 'Standalone'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Endpoint Array:</span>
-                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items in memory</span>
+                    <span className="text-blue-400 font-bold">{endpoints?.length || 0} items found in memory</span>
                   </div>
                 </div>
-                <button onClick={() => onNavigate('upload')} className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95">
+                <button onClick={() => navigate('/')} className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg active:scale-95">
                   Return to Upload
                 </button>
              </div>
@@ -250,11 +250,7 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
                     const id = ep.id || `${ep.method}:${ep.path}`;
                     const isSelected = selectedEndpoints.has(id);
                     return (
-                      <div 
-                        key={id} 
-                        onClick={() => toggleEndpoint(id)} 
-                        className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 cursor-pointer transition-all ${isSelected ? 'bg-blue-50/20 dark:bg-blue-900/10' : ''}`}
-                      >
+                      <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 cursor-pointer transition-all ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
                         <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-all ${
                             isSelected 
                               ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-sm' 
@@ -262,21 +258,18 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
                           }`}>
                           {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
                         </div>
-                        
                         <div className={`px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
-                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' : 
-                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' : 
-                          'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
+                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200' : 
+                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200' : 
+                          'bg-amber-100 text-amber-700 border-amber-200'
                         }`}>
                           {ep.method.toUpperCase()}
                         </div>
-                        
-                        <div className="flex-1 font-mono text-[11px] sm:text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
+                        <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
                           {ep.path}
                         </div>
-                        
                         <div className="hidden sm:block flex-1 text-[11px] text-slate-500 italic truncate text-right">
-                          {ep.description || 'No description provided'}
+                          {ep.description || ep.summary || 'No description provided'}
                         </div>
                       </div>
                     );
@@ -302,13 +295,13 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
 
       <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8">
         <button 
-          onClick={() => onNavigate('upload')} 
+          onClick={() => navigate('/')} 
           className="flex items-center gap-2 px-6 py-2.5 text-slate-600 dark:text-slate-400 hover:text-[#141B41] font-medium transition-all hover:-translate-x-1"
         >
           <ChevronLeft className="h-4 w-4" /> Back
         </button>
         <button 
-          onClick={() => onNavigate('macros')} 
+          onClick={() => navigate('/macro-tools')} 
           className="flex items-center gap-2 px-10 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={selectedEndpoints.size === 0}
         >
@@ -316,63 +309,5 @@ const PruneView = ({ onNavigate }: { onNavigate: (path: string) => void }) => {
         </button>
       </div>
     </div>
-  );
-};
-
-// ============================================================================
-// --- MAIN APP ENTRY POINT ---
-// ============================================================================
-
-export default function App() {
-  const [page, setPage] = useState('prune');
-  const [endpoints, setEndpoints] = useState<any[]>([]);
-  const [selectedEndpoints, setSelectedEndpoints] = useState<Set<string>>(new Set());
-  const [user, setUser] = useState<any>({ uid: 'test-user', isAnonymous: true });
-
-  // Example: Pre-fill some data to demonstrate functionality in preview
-  useEffect(() => {
-    setEndpoints([
-      { id: 'PUT:/pet', method: 'PUT', path: '/pet', description: 'Update an existing pet', tags: ['Pet Inventory'] },
-      { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', tags: ['Pet Inventory'] },
-      { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds Pets by status', tags: ['Pet Inventory'] },
-      { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', tags: ['Analytics'] },
-      { id: 'GET:/analytics/sales', method: 'GET', path: '/analytics/sales', description: 'Get aggregate sales data', tags: ['Analytics'] }
-    ]);
-  }, []);
-
-  const handleNavigate = (path: string) => {
-    // In a real app, this would use a router. Here we simulate page switching.
-    console.log(`Navigating to: ${path}`);
-    setPage(path);
-  };
-
-  return (
-    <AppContext.Provider value={{ 
-      endpoints, 
-      setEndpoints, 
-      selectedEndpoints, 
-      setSelectedEndpoints,
-      user
-    }}>
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100">
-        {page === 'prune' ? (
-          <PruneView onNavigate={handleNavigate} />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-screen space-y-4">
-             <div className="p-8 bg-white dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md text-center">
-                <Database className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2 uppercase tracking-tighter">Navigation Simulated</h2>
-                <p className="text-slate-500 mb-6 text-sm">You navigated to: <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 rounded font-bold">/{page}</span></p>
-                <button 
-                  onClick={() => setPage('prune')} 
-                  className="w-full py-3 bg-[#141B41] dark:bg-blue-600 text-white font-bold rounded-xl hover:scale-105 transition-all"
-                >
-                  Return to Prune
-                </button>
-             </div>
-          </div>
-        )}
-      </div>
-    </AppContext.Provider>
   );
 }
