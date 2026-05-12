@@ -12,18 +12,19 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// 🛑 INTERNAL CONTEXT FALLBACK
+// 🛑 INTERNAL CONTEXT BRIDGE
 // ============================================================================
-// We define a local context fallback to ensure the file compiles and runs 
-// even if relative imports are not resolved in the current environment.
+// This ensures the file compiles in the preview environment where relative 
+// imports like '../context/AppContext' may not be resolvable.
+// In your local project, this will gracefully defer to your real AppContext.
 
-const AppContext = createContext<any>(null);
+const InternalAppContext = createContext<any>(null);
 
 const useApp = () => {
-  const context = useContext(AppContext);
+  const context = useContext(InternalAppContext);
   if (!context) {
-    // If you are running this locally, ensure AppContext is correctly provided 
-    // in your component tree. This fallback allows the code to compile.
+    // If the provider isn't found (like in this preview), we provide a 
+    // safe fallback so the UI still renders and functions.
     return {
       endpoints: [],
       selectedEndpoints: new Set(),
@@ -43,11 +44,12 @@ export default function Prune() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   
+  // Use the local hook which safely wraps your application context
   const context = useApp() as any;
   const { endpoints = [], selectedEndpoints = new Set(), setSelectedEndpoints } = context;
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Timer logic for Magic Suggest
+  // Magic Suggest Timer logic
   useEffect(() => {
     let interval: any;
     if (isAnalyzing) {
@@ -60,7 +62,7 @@ export default function Prune() {
     return () => clearInterval(interval);
   }, [isAnalyzing]);
 
-  // 2. Filter endpoints based on search
+  // Filter based on search bar
   const filteredEndpoints = useMemo(() => {
     return endpoints.filter((ep: any) => 
       ep.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -76,7 +78,7 @@ export default function Prune() {
   };
 
   /**
-   * 🚀 GLOBAL SELECTION
+   * 🛠 GLOBAL ACTIONS
    */
   const selectAll = () => {
     const allIds = new Set(endpoints.map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
@@ -87,6 +89,9 @@ export default function Prune() {
     setSelectedEndpoints(new Set());
   };
 
+  /**
+   * 🪄 MAGIC SUGGEST
+   */
   const handleMagicSuggest = async () => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -120,7 +125,7 @@ export default function Prune() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Select the specific tools your AI agent needs.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Select the tools for your AI agent.</p>
         </div>
         <div className="flex gap-2">
            <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2">
@@ -151,7 +156,7 @@ export default function Prune() {
         </div>
         
         <div className="flex gap-2 shrink-0">
-          <button onClick={handleMagicSuggest} disabled={isAnalyzing} className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-50">
+          <button onClick={handleMagicSuggest} disabled={isAnalyzing} className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-50 active:scale-95">
             {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             <span className="whitespace-nowrap">{isAnalyzing ? `Analyzing (${secondsElapsed}s)` : 'Magic Suggest'}</span>
           </button>
@@ -164,17 +169,17 @@ export default function Prune() {
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 min-h-[300px]">
         {filteredEndpoints.length === 0 ? (
           <div className="p-20 text-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
-            No endpoints found. Try uploading a different schema.
+            {endpoints.length === 0 ? "Please upload a JSON file first." : "No endpoints match your search."}
           </div>
         ) : (
           filteredEndpoints.map((ep: any) => {
             const id = ep.id || `${ep.method}:${ep.path}`;
             const isSelected = selectedEndpoints.has(id);
             return (
-              <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 bg-white dark:bg-[#111827] border rounded-xl flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
+              <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 bg-white dark:bg-[#111827] border rounded-xl flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
                 <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
                   {isSelected && <Check className="h-3.5 w-3.5" />}
                 </div>
@@ -196,7 +201,7 @@ export default function Prune() {
         </button>
         <button 
           onClick={() => navigate('/macro-tools')} 
-          className="flex items-center gap-2 px-10 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-10 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
           disabled={selectedEndpoints.size === 0}
         >
           Continue <ChevronRight className="h-4 w-4" />
