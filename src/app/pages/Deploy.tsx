@@ -13,7 +13,6 @@ import {
   doc, 
   onSnapshot, 
   setDoc,
-  updateDoc,
   Firestore
 } from 'firebase/firestore';
 import { 
@@ -113,7 +112,16 @@ export function useApp() {
 // --- 4. UI COMPONENTS ---
 
 export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean, onClose: () => void, featureName: string }) {
+  const { user } = useApp();
+
   if (!isOpen) return null;
+
+  const handleUpgradeClick = () => {
+    const userId = user?.uid || 'guest-session';
+    const stripePaymentLink = `https://buy.stripe.com/test_6oU00jbfRcjV2Vk97Sew800?client_reference_id=${userId}`;
+    window.location.href = stripePaymentLink;
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-[#111827] rounded-3xl w-full max-w-md p-8 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
@@ -125,14 +133,19 @@ export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean
             <X className="h-5 w-5 text-slate-400" />
           </button>
         </div>
-        <h3 className="text-2xl font-bold text-[#141B41] dark:text-white mb-2">Upgrade to Pro</h3>
+        <h3 className="text-2xl font-bold text-[#141B41] dark:text-white mb-2 tracking-tight">Upgrade to Pro</h3>
         <p className="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
           The <span className="font-semibold text-[#141B41] dark:text-slate-200">{featureName}</span> feature is exclusive to MCP Studio Pro users.
         </p>
-        <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+        
+        <button 
+          onClick={handleUpgradeClick}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all group"
+        >
           Upgrade Now — $19/mo
-          <ArrowRight className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
         </button>
+        <p className="text-center text-[10px] text-slate-500 mt-4 uppercase tracking-widest font-bold">Secure payment via Stripe</p>
       </div>
     </div>
   );
@@ -147,7 +160,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
       <div className="w-20 h-20 bg-blue-900/20 rounded-full flex items-center justify-center mb-6">
         <Server className="h-10 w-10 text-blue-400" />
       </div>
-      <h2 className="text-2xl font-semibold text-white mb-4 tracking-tight">Ready to Deploy</h2>
+      <h2 className="text-2xl font-semibold text-white mb-4 tracking-tight text-center">Ready to Deploy</h2>
       
       <div className="min-h-[40px] flex items-center justify-center mb-8">
         {syncing ? (
@@ -156,7 +169,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
             <span>Syncing project state...</span>
           </div>
         ) : (
-          <p className="text-slate-400 max-w-lg mx-auto leading-relaxed">
+          <p className="text-slate-400 max-w-lg mx-auto leading-relaxed text-center">
             You have selected <span className="text-blue-400 font-bold">{selectedEndpoints.size}</span> endpoints. We will securely deploy an MCP gateway instance for your agent.
           </p>
         )}
@@ -177,7 +190,7 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
         <div className={`p-4 rounded-xl border transition-all ${piiMasking ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-900/50 border-slate-800'}`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Shield className={`w-4 h-4 ${piiMasking ? 'text-blue-400' : 'text-slate-500'}`} />
+              {piiMasking ? <Shield className="w-4 h-4 text-blue-400" /> : <ShieldAlert className="w-4 h-4 text-slate-500" />}
               <span className="font-bold text-xs uppercase tracking-wider text-slate-200">PII Redaction</span>
             </div>
             <button 
@@ -187,11 +200,10 @@ export function DeploymentPanel({ onDeploy, isDeploying, baseUrl, setBaseUrl }: 
               <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${piiMasking ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
-          <p className="text-[10px] text-slate-500">Automatically masks emails and phone numbers in API responses. {!isPro && <span className="text-blue-500 font-bold ml-1">PRO</span>}</p>
+          <p className="text-[10px] text-slate-500">Automatically masks emails and phone numbers in responses. {!isPro && <span className="text-blue-500 font-bold ml-1">PRO</span>}</p>
         </div>
       </div>
 
-      {/* Button centered via container flex-col items-center */}
       <button 
         onClick={onDeploy} 
         disabled={isDeploying || selectedEndpoints.size === 0 || !baseUrl.trim() || syncing} 
@@ -230,7 +242,7 @@ export function DeploymentSuccess({ info, count }: { info: DeploymentInfo, count
         <p className="text-slate-400 mb-6">Your MCP server is live with {count} active tools.</p>
         
         <div className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
-          <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm font-mono text-blue-400 overflow-hidden text-ellipsis whitespace-nowrap">
+          <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm font-mono text-blue-400 overflow-hidden text-ellipsis whitespace-nowrap text-left">
             {info.serverUrl}
           </div>
           <button 
@@ -279,12 +291,19 @@ export function Deploy() {
     try {
       const selectedDetails = endpoints.filter(ep => selectedEndpoints.has(`${ep.method}:${ep.path}`));
       
-      // Update persistent project state (Strict Path Rule 1)
+      // CRITICAL FIX: Use setDoc with { merge: true } instead of updateDoc
+      // This ensures the document is created if it doesn't exist for the current UID.
       const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
-      await updateDoc(projectRef, { 
+      
+      await setDoc(projectRef, { 
         piiMasking: !!piiMasking, 
-        targetBaseUrl: baseUrl.trim()
-      });
+        targetBaseUrl: baseUrl.trim(),
+        deploymentInfo: {
+          serverUrl: `https://mcp-proxy-backend.onrender.com/sse/pending`,
+          apiKey: 'vault-key',
+          piiMasking: !!piiMasking
+        }
+      }, { merge: true });
       
       const response = await fetch('https://mcp-proxy-backend.onrender.com/api/deploy', {
         method: 'POST',
@@ -299,11 +318,16 @@ export function Deploy() {
       if (!response.ok) throw new Error("Gateway deployment failed. Check connectivity.");
       
       const data = await response.json();
-      setDeploymentInfo({ 
+      const newDeployInfo = { 
         serverUrl: data.sseUrl, 
         apiKey: 'vault-key', 
         piiMasking: !!piiMasking 
-      });
+      };
+
+      setDeploymentInfo(newDeployInfo);
+
+      // Save success state to cloud (again ensuring setDoc is used)
+      await setDoc(projectRef, { deploymentInfo: newDeployInfo }, { merge: true });
       
     } catch (error: any) {
       setDeployError(error.message);
@@ -319,7 +343,7 @@ export function Deploy() {
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" /> 
           <div>
              <p className="font-bold mb-0.5">Deployment Error</p>
-             <p>{deployError}</p>
+             <p className="font-mono text-[10px] opacity-70 break-all">{deployError}</p>
           </div>
         </div>
       )}
@@ -367,7 +391,7 @@ export default function App() {
   useEffect(() => {
     if (!user || !db) return;
     setSyncing(true);
-    // CRITICAL: Using User-Specific Path to fix permission errors
+    
     const projectRef = doc(db, 'artifacts', appId, 'users', user.uid, 'project', 'current');
     
     const unsubscribe = onSnapshot(projectRef, (snap) => {
@@ -377,7 +401,6 @@ export default function App() {
         if (data.piiMasking !== undefined) setPiiMasking(data.piiMasking);
         if (data.isPro !== undefined) setIsPro(data.isPro);
         
-        // Correcting selection count (Handle array from Firestore)
         if (Array.isArray(data.selectedEndpoints)) {
           setSelectedEndpoints(new Set(data.selectedEndpoints));
         } else if (data.selectedEndpoints && typeof data.selectedEndpoints === 'object') {
