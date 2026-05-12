@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, BrowserRouter } from 'react-router';
+import React, { useState, useMemo, createContext, useContext } from 'react';
+import { useNavigate } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
@@ -12,26 +12,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// ============================================================================
-// 🛑 IMPORTANT FOR LOCAL DEVELOPMENT:
-// 1. Uncomment the import below:
-// import { useApp } from '../context/AppContext';
-// 2. Remove the Mock Context and Preview Wrapper at the bottom of this file.
-// ============================================================================
-
 // --- LOCAL MOCK FOR PREVIEW ENVIRONMENT ---
-const AppContext = React.createContext<any>(null);
-const useApp = () => React.useContext(AppContext);
+const AppContext = createContext<any>(null);
+const useApp = () => useContext(AppContext);
 
 export function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   
-  let context: any = null;
-  try {
-    context = useApp();
-  } catch (e) {}
+  const context = useApp() as any;
 
   if (!context) {
     return <div className="p-20 text-center text-slate-500">Initializing workspace...</div>;
@@ -309,8 +299,7 @@ export function Prune() {
 
 // ============================================================================
 // --- STANDALONE PREVIEW WRAPPER ---
-// This safely isolates the page for rendering in this environment.
-// Do not copy this bottom section to your local project.
+// This safely isolates the page for rendering in this environment without a double router
 // ============================================================================
 export default function App() {
   const [selectedEndpoints, setSelectedEndpoints] = useState<Set<string>>(new Set());
@@ -327,11 +316,9 @@ export default function App() {
       selectedEndpoints,
       setSelectedEndpoints
     }}>
-      <BrowserRouter>
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-          <Prune />
-        </div>
-      </BrowserRouter>
+      <div className="min-h-screen bg-[#020617] text-slate-200">
+        <Prune />
+      </div>
     </AppContext.Provider>
   );
 }
