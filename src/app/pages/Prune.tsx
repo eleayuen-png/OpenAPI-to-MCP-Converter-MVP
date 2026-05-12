@@ -1,12 +1,10 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
-import { useNavigate, MemoryRouter, Routes, Route } from 'react-router';
+import { useNavigate } from 'react-router';
 import { 
   ChevronRight, 
   ChevronLeft, 
-  Filter, 
   Search, 
   Check, 
-  Lightbulb, 
   Sparkles, 
   Loader2,
   AlertCircle,
@@ -14,25 +12,20 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// 🛑 INTERNAL CONTEXT (Ensures the file compiles and runs in this environment)
+// 🛑 INTERNAL CONTEXT FALLBACK
 // ============================================================================
-// We define the context and hook locally to avoid the "Could not resolve" error 
-// in the preview while maintaining the same API for your production build.
+// We define a local context fallback to ensure the file compiles and runs 
+// even if relative imports are not resolved in the current environment.
 
 const AppContext = createContext<any>(null);
 
 const useApp = () => {
   const context = useContext(AppContext);
-  // Fallback for standalone preview if context isn't provided by a parent
   if (!context) {
+    // If you are running this locally, ensure AppContext is correctly provided 
+    // in your component tree. This fallback allows the code to compile.
     return {
-      endpoints: [
-        { id: 'GET:/pet', method: 'GET', path: '/pet', description: 'Finds pets by status', tags: ['Pet Inventory'] },
-        { id: 'POST:/pet', method: 'POST', path: '/pet', description: 'Add a new pet to the store', tags: ['Pet Inventory'] },
-        { id: 'GET:/pet/findByStatus', method: 'GET', path: '/pet/findByStatus', description: 'Finds pets by status', tags: ['Pet Inventory'] },
-        { id: 'GET:/pet/findByTags', method: 'GET', path: '/pet/findByTags', description: 'Finds pets by tags', tags: ['Pet Inventory'] },
-        { id: 'GET:/store/inventory', method: 'GET', path: '/store/inventory', description: 'Returns pet inventories', tags: ['Store'] }
-      ],
+      endpoints: [],
       selectedEndpoints: new Set(),
       setSelectedEndpoints: () => {}
     };
@@ -41,10 +34,10 @@ const useApp = () => {
 };
 
 // ============================================================================
-// --- PRUNE PAGE COMPONENT ---
+// --- MAIN PRUNE COMPONENT ---
 // ============================================================================
 
-function PrunePage() {
+export default function Prune() {
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -83,7 +76,7 @@ function PrunePage() {
   };
 
   /**
-   * 🚀 RESTORED: SELECT ALL FUNCTIONALITY
+   * 🚀 GLOBAL SELECTION
    */
   const selectAll = () => {
     const allIds = new Set(endpoints.map((ep: any) => ep.id || `${ep.method}:${ep.path}`));
@@ -127,12 +120,12 @@ function PrunePage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-[#141B41] dark:text-white mb-2 tracking-tight">Prune Endpoints</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Refine your API surface for the AI agent.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Select the specific tools your AI agent needs.</p>
         </div>
         <div className="flex gap-2">
            <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2">
              <Zap className="w-4 h-4 text-blue-500" />
-             <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{selectedEndpoints.size} Active Tools</span>
+             <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{selectedEndpoints.size} Selected</span>
            </div>
         </div>
       </div>
@@ -158,36 +151,40 @@ function PrunePage() {
         </div>
         
         <div className="flex gap-2 shrink-0">
-          <button onClick={handleMagicSuggest} disabled={isAnalyzing} className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
+          <button onClick={handleMagicSuggest} disabled={isAnalyzing} className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-50">
             {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             <span className="whitespace-nowrap">{isAnalyzing ? `Analyzing (${secondsElapsed}s)` : 'Magic Suggest'}</span>
           </button>
-          
-          <button onClick={selectAll} className="px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold rounded-xl border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 transition-colors whitespace-nowrap">
+          <button onClick={selectAll} className="px-4 py-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold rounded-xl border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 transition-colors">
             Select All
           </button>
-          
-          <button onClick={deselectAll} className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors whitespace-nowrap">
+          <button onClick={deselectAll} className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-200 transition-colors">
             Deselect
           </button>
         </div>
       </div>
 
       <div className="space-y-2">
-        {filteredEndpoints.map((ep: any) => {
-          const id = ep.id || `${ep.method}:${ep.path}`;
-          const isSelected = selectedEndpoints.has(id);
-          return (
-            <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 bg-white dark:bg-[#111827] border rounded-xl flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
-              <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
-                {isSelected && <Check className="h-3.5 w-3.5" />}
+        {filteredEndpoints.length === 0 ? (
+          <div className="p-20 text-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+            No endpoints found. Try uploading a different schema.
+          </div>
+        ) : (
+          filteredEndpoints.map((ep: any) => {
+            const id = ep.id || `${ep.method}:${ep.path}`;
+            const isSelected = selectedEndpoints.has(id);
+            return (
+              <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 bg-white dark:bg-[#111827] border rounded-xl flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'}`}>
+                <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                  {isSelected && <Check className="h-3.5 w-3.5" />}
+                </div>
+                <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${ep.method === 'GET' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{ep.method}</span>
+                <span className="flex-1 font-mono text-xs font-medium dark:text-blue-100 truncate">{ep.path}</span>
+                <span className="hidden sm:block text-xs text-slate-500 italic truncate max-w-[200px]">{ep.description || 'No description'}</span>
               </div>
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${ep.method === 'GET' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{ep.method}</span>
-              <span className="flex-1 font-mono text-xs font-medium dark:text-blue-100 truncate">{ep.path}</span>
-              <span className="hidden sm:block text-xs text-slate-500 italic truncate max-w-[200px]">{ep.description || 'No description'}</span>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8 transition-colors">
@@ -199,31 +196,12 @@ function PrunePage() {
         </button>
         <button 
           onClick={() => navigate('/macro-tools')} 
-          className="flex items-center gap-2 px-10 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-all active:scale-95"
+          className="flex items-center gap-2 px-10 py-3 bg-[#141B41] dark:bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={selectedEndpoints.size === 0}
         >
           Continue <ChevronRight className="h-4 w-4" />
         </button>
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-// --- STANDALONE WRAPPER (For Compilation & Preview) ---
-// ============================================================================
-
-export default function App() {
-  const [selectedEndpoints, setSelectedEndpoints] = useState(new Set());
-  
-  return (
-    <MemoryRouter>
-      <AppContext.Provider value={{ selectedEndpoints, setSelectedEndpoints }}>
-        <div className="min-h-screen bg-[#020617] text-slate-200">
-          <Routes>
-            <Route path="*" element={<PrunePage />} />
-          </Routes>
-        </div>
-      </AppContext.Provider>
-    </MemoryRouter>
   );
 }
