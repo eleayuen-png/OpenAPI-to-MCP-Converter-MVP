@@ -258,7 +258,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 
   const cursorSnippet = JSON.stringify({
     "mcpServers": {
-      "mcp-studio-proxy": {
+      "my-api": {
         "type": "sse",
         "url": info.serverUrl
       }
@@ -279,7 +279,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
       "Open Cursor Settings (Cmd+Shift+J / Ctrl+Shift+J)",
       "Navigate to 'Models' then 'MCP'",
       "Click '+ Add New MCP Server'",
-      "Name it 'mcp-studio', choose 'SSE' as type",
+      "Name it 'my-api', choose 'SSE' as type",
       "Paste the Server URL or the JSON snippet"
     ],
     cline: [
