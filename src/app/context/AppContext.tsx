@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
-import posthog from 'posthog-js';
+import { usePostHog } from '@posthog/react';
 // @ts-ignore
 import { initializeApp } from 'firebase/app';
 // @ts-ignore
@@ -149,11 +149,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       initAuth();
       return onAuthStateChanged(firebaseAuth, (u) => {
         setUser(u);
-        if (u) {
-          posthog.identify(u.uid, { is_anonymous: u.isAnonymous });
-        } else {
-          posthog.reset();
-        }
       });
     } catch (e) {
       console.error("❌ Firebase Setup Error:", e);
@@ -309,7 +304,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (!auth) return;
     try {
-      posthog.reset();
       await signOut(auth);
       window.location.reload();
     } catch (e) {
@@ -369,4 +363,17 @@ export function useApp() {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
+}
+
+export function usePostHogIdentification() {
+  const { user } = useApp();
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    if (user) {
+      posthog.identify(user.uid, { is_anonymous: user.isAnonymous });
+    } else {
+      posthog.reset();
+    }
+  }, [user, posthog]);
 }

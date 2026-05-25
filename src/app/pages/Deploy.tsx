@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import posthog from 'posthog-js';
+import { usePostHog } from '@posthog/react';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -397,6 +397,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 
 export function DeployPage() {
   const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+  const posthog = usePostHog();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState(targetBaseUrl || 'https://petstore.swagger.io/v2');

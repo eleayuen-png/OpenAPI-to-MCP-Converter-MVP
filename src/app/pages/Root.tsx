@@ -9,17 +9,19 @@ import { usePostHog } from '@posthog/react';
  * the browser-based editor cannot see your local filesystem.
  */
 import { WizardNav } from '../components/WizardNav';
-import { AppProvider } from '../context/AppContext';
+import { AppProvider, usePostHogIdentification } from '../context/AppContext';
 
-export default function Root() {
+function RootContent() {
   const location = useLocation();
   const isLogsPage = location.pathname === '/logs';
   const posthog = usePostHog();
   const [isDark, setIsDark] = useState(false);
 
+  usePostHogIdentification();
+
   useEffect(() => {
     posthog.capture('$pageview', { $current_url: window.location.href });
-  }, [location.pathname]);
+  }, [location.pathname, posthog]);
 
   // Initialize theme from system preference or previous state
   useEffect(() => {
@@ -41,8 +43,7 @@ export default function Root() {
   }, [isDark]);
 
   return (
-    <AppProvider>
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-300">
         <header className="bg-white/80 dark:bg-[#141B41]/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-4 sticky top-0 z-50">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 group">
@@ -85,6 +86,13 @@ export default function Root() {
           <Outlet />
         </main>
       </div>
+  );
+}
+
+export default function Root() {
+  return (
+    <AppProvider>
+      <RootContent />
     </AppProvider>
   );
 }

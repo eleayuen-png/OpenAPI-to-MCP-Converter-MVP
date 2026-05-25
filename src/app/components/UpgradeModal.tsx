@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock, Sparkles, X, CheckCircle2, Shield, Zap, Server } from 'lucide-react';
-import posthog from 'posthog-js';
+import { usePostHog } from '@posthog/react';
 // @ts-ignore
 import { useApp } from '../context/AppContext';
 
@@ -12,6 +12,7 @@ interface UpgradeModalProps {
 
 export function UpgradeModal({ isOpen, onClose, featureName }: UpgradeModalProps) {
   const { user, loginWithGoogle } = useApp() as any;
+  const posthog = usePostHog();
 
   if (!isOpen) return null;
 
