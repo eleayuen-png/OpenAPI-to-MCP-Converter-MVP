@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import posthog from 'posthog-js';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -439,7 +440,8 @@ export function DeployPage() {
       };
 
       setDeploymentInfo(newDeployInfo);
-      
+      posthog.capture('server_deployed', { endpoints_count: selectedEndpoints.size });
+
     } catch (error: any) {
       setDeployError(error.message);
     } finally {

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import posthog from 'posthog-js';
 // @ts-ignore
 import { initializeApp } from 'firebase/app';
 // @ts-ignore
@@ -148,6 +149,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       initAuth();
       return onAuthStateChanged(firebaseAuth, (u) => {
         setUser(u);
+        if (u) {
+          posthog.identify(u.uid, { is_anonymous: u.isAnonymous });
+        } else {
+          posthog.reset();
+        }
       });
     } catch (e) {
       console.error("❌ Firebase Setup Error:", e);
@@ -303,6 +309,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (!auth) return;
     try {
+      posthog.reset();
       await signOut(auth);
       window.location.reload();
     } catch (e) {

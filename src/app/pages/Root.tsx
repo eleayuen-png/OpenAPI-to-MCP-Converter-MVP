@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
 import { Activity, Moon, Sun, Sparkles } from 'lucide-react';
+import { usePostHog } from 'posthog-js/react';
 
 /**
  * These imports reference other files in your local project.
@@ -13,7 +14,12 @@ import { AppProvider } from '../context/AppContext';
 export default function Root() {
   const location = useLocation();
   const isLogsPage = location.pathname === '/logs';
+  const posthog = usePostHog();
   const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    posthog.capture('$pageview', { $current_url: window.location.href });
+  }, [location.pathname]);
 
   // Initialize theme from system preference or previous state
   useEffect(() => {

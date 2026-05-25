@@ -1,5 +1,12 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_POSTHOG_KEY: string;
+}
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 /**
  * This file tells TypeScript how to handle Vite-specific features.
  */

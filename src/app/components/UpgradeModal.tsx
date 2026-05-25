@@ -1,5 +1,6 @@
 import React from 'react';
 import { Lock, Sparkles, X, CheckCircle2, Shield, Zap, Server } from 'lucide-react';
+import posthog from 'posthog-js';
 // @ts-ignore
 import { useApp } from '../context/AppContext';
 
@@ -15,6 +16,7 @@ export function UpgradeModal({ isOpen, onClose, featureName }: UpgradeModalProps
   if (!isOpen) return null;
 
   const handleUpgradeClick = async () => {
+    posthog.capture('pro_upgrade_clicked', { feature: featureName, user_is_anonymous: !!user?.isAnonymous });
     // If they are anonymous, force them to create a permanent account first!
     if (user?.isAnonymous) {
       await loginWithGoogle();

@@ -2,6 +2,8 @@ import * as buffer from 'buffer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate } from 'react-router';
+import posthog from 'posthog-js';
+import { PostHogProvider } from 'posthog-js/react';
 
 /**
  * 1. THE POLYFILL
@@ -17,6 +19,12 @@ declare global {
 if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || buffer.Buffer;
 }
+
+posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
+  api_host: 'https://us.i.posthog.com',
+  person_profiles: 'identified_only',
+  capture_pageview: false,
+});
 
 /**
  * 2. IMPORTS
@@ -49,19 +57,21 @@ if (container) {
   const root = ReactDOM.createRoot(container as HTMLElement);
   root.render(
     <React.StrictMode>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<Root />}>
-            <Route index element={<Upload />} />
-            <Route path="/prune" element={<Prune />} />
-            <Route path="/macro-tools" element={<MacroTools />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/deploy" element={<Deploy />} />
-            <Route path="/logs" element={<Logs />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </HashRouter>
+      <PostHogProvider client={posthog}>
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<Root />}>
+              <Route index element={<Upload />} />
+              <Route path="/prune" element={<Prune />} />
+              <Route path="/macro-tools" element={<MacroTools />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/deploy" element={<Deploy />} />
+              <Route path="/logs" element={<Logs />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </HashRouter>
+      </PostHogProvider>
     </React.StrictMode>
   );
 }
