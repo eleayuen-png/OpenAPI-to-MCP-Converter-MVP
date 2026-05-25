@@ -2,10 +2,12 @@ import { useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { AlertCircle, AlertTriangle, Info, RefreshCw, ArrowLeft, Filter } from 'lucide-react';
 import { useState } from 'react';
+import { usePostHog } from '@posthog/react';
 
 export default function Logs() {
   const navigate = useNavigate();
   const { logs, setLogs } = useApp();
+  const posthog = usePostHog();
   const [filterLevel, setFilterLevel] = useState<'all' | 'error' | 'warning' | 'info'>('all');
 
   const filteredLogs = logs.filter(log =>
@@ -13,6 +15,7 @@ export default function Logs() {
   );
 
   const addMockLog = () => {
+    posthog.capture('simulate_log_entry_clicked');
     const mockLogs = [
       {
         id: Math.random().toString(),
