@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate } from 'react-router';
 import posthog from 'posthog-js';
-import { PostHogProvider } from 'posthog-js/react';
+import { PostHogProvider } from '@posthog/react';
 
 /**
  * 1. THE POLYFILL
@@ -20,10 +20,11 @@ if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || buffer.Buffer;
 }
 
-posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-  api_host: 'https://us.i.posthog.com',
+posthog.init(import.meta.env.VITE_POSTHOG_TOKEN, {
+  api_host: import.meta.env.VITE_POSTHOG_HOST,
   person_profiles: 'identified_only',
   capture_pageview: false,
+  defaults: '2026-01-30',
 });
 
 /**

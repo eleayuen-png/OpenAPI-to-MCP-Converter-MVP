@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
 import { Activity, Moon, Sun, Sparkles } from 'lucide-react';
-import { usePostHog } from 'posthog-js/react';
+import { usePostHog } from '@posthog/react';
 
 /**
  * These imports reference other files in your local project.
