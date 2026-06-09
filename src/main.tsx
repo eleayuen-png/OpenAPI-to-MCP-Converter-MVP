@@ -20,16 +20,26 @@ if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || buffer.Buffer;
 }
 
+/**
+ * 2. POSTHOG INIT
+ * - capture_pageview: false  → we fire $pageview manually in Root.tsx (required for HashRouter)
+ * - disable_compression: true → keeps request bodies as plain JSON (avoids a keepalive/gzip
+ *   binary-body issue on some browsers in development)
+ * - person_profiles: 'always' → capture person properties even for anonymous users
+ * NOTE: do NOT add `defaults: '2026-01-30'` — that option sets internal_or_test_user_hostname
+ * to match localhost, which marks every dev session as an internal user and hides it from
+ * PostHog Live Events.
+ */
 posthog.init(import.meta.env.VITE_POSTHOG_TOKEN, {
   api_host: import.meta.env.VITE_POSTHOG_HOST,
-  person_profiles: 'identified_only',
+  person_profiles: 'always',
   capture_pageview: false,
-  defaults: '2026-01-30',
+  disable_compression: true,
 });
 
 /**
- * 2. IMPORTS
- * Removing explicit extensions to allow the bundler to resolve the modules 
+ * 3. IMPORTS
+ * Removing explicit extensions to allow the bundler to resolve the modules
  * based on the project configuration.
  */
 // @ts-ignore
@@ -50,7 +60,7 @@ import Logs from './app/pages/Logs';
 import './styles/theme.css'; 
 
 /**
- * 3. RENDERING & ROUTING
+ * 4. RENDERING & ROUTING
  */
 const container = document.getElementById('root');
 
