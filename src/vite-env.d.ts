@@ -3,6 +3,9 @@
 interface ImportMetaEnv {
   readonly VITE_POSTHOG_TOKEN: string;
   readonly VITE_POSTHOG_HOST: string;
+  readonly VITE_STRIPE_PAYMENT_LINK: string;
+  readonly VITE_STRIPE_PRICE_ID: string;
+  readonly VITE_STRIPE_PRODUCT_ID: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

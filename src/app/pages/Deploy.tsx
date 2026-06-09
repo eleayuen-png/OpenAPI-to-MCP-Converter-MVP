@@ -131,7 +131,7 @@ export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean
     }
 
     // Redirect to the Stripe checkout
-    const stripePaymentLink = `https://buy.stripe.com/test_6oU00jbfRcjV2Vk97Sew800?client_reference_id=${user?.uid}`;
+    const stripePaymentLink = `${import.meta.env.VITE_STRIPE_PAYMENT_LINK}?client_reference_id=${user?.uid}`;
     window.location.href = stripePaymentLink;
   };
 
