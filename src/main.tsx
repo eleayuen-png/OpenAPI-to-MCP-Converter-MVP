@@ -57,7 +57,9 @@ import Deploy from './app/pages/Deploy';
 // @ts-ignore
 import Logs from './app/pages/Logs';
 // @ts-ignore
-import './styles/theme.css'; 
+import Analytics from './app/pages/Analytics';
+// @ts-ignore
+import './styles/theme.css';
 
 /**
  * 4. RENDERING & ROUTING
@@ -78,6 +80,7 @@ if (container) {
               <Route path="/auth" element={<Auth />} />
               <Route path="/deploy" element={<Deploy />} />
               <Route path="/logs" element={<Logs />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

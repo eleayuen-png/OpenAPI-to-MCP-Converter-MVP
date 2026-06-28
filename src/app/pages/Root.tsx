@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
-import { Activity, Moon, Sun, Sparkles } from 'lucide-react';
+import { Activity, Moon, Sun, Sparkles, BarChart2 } from 'lucide-react';
 import { usePostHog } from '@posthog/react';
 
-/**
- * These imports reference other files in your local project.
- * Note: The "Could not resolve" errors in this preview tool occur because 
- * the browser-based editor cannot see your local filesystem.
- */
 import { WizardNav } from '../components/WizardNav';
-import { AppProvider, usePostHogIdentification } from '../context/AppContext';
+import { AppProvider, useApp, usePostHogIdentification } from '../context/AppContext';
 
 function RootContent() {
   const location = useLocation();
   const isLogsPage = location.pathname === '/logs';
   const posthog = usePostHog();
+  const { isAdmin } = useApp();
   const [isDark, setIsDark] = useState(false);
 
   usePostHogIdentification();
@@ -68,6 +64,15 @@ function RootContent() {
               >
                 {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
+              {isAdmin && (
+                <Link
+                  to="/analytics"
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 rounded-full text-sm font-medium transition-colors"
+                >
+                  <BarChart2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Analytics</span>
+                </Link>
+              )}
               <Link
                 to="/logs"
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 rounded-full text-sm font-medium transition-colors"

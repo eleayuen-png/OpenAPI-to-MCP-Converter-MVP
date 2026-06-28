@@ -77,6 +77,7 @@ interface AppContextType {
   piiMasking: boolean;
   setPiiMasking: (enabled: boolean) => void;
   isPro: boolean;
+  isAdmin: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
   isInitialLoad: boolean;
@@ -333,6 +334,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       syncToCloud({ piiMasking: finalVal }); 
     },
     isPro,
+    isAdmin: !!user && !user.isAnonymous && !!user.email && (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).includes((user.email ?? '').toLowerCase()),
     targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     isInitialLoad,
