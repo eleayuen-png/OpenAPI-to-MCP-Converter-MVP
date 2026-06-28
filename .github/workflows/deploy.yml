@@ -48,8 +48,8 @@ jobs:
           VITE_ADMIN_EMAILS: yuenelea@gmail.com
           VITE_STRIPE_PAYMENT_LINK_MONTHLY: https://buy.stripe.com/6oU00jbfRcjV2Vk97Sew800
           VITE_STRIPE_PAYMENT_LINK_QUARTERLY: https://buy.stripe.com/6oU7sLgAbes33Zock4ew803
-          VITE_STRIPE_PAYMENT_LINK_SEMIANNUAL: https://buy.stripe.com/3cI4gz0BdgAb3Zo2Juew802
-          VITE_STRIPE_PAYMENT_LINK_ANNUAL: https://buy.stripe.com/9B67sL5VxcjVeE2escew801
+          VITE_STRIPE_PAYMENT_LINK_SEMIANNUAL: https://buy.stripe.com/9B68wP2Jl97J7bAgAkew804
+          VITE_STRIPE_PAYMENT_LINK_ANNUAL: https://buy.stripe.com/7sYfZhabNes37bA4RCew805
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
