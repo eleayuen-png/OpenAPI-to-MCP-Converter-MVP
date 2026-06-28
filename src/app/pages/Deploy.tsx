@@ -122,7 +122,7 @@ const PLANS = [
   { id: 'monthly',    label: 'Monthly',     price: '$19',  billingNote: 'per month',       perMonth: '$19 / mo',       savingsVsMonthly: null,     link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_MONTHLY },
   { id: 'quarterly',  label: 'Quarterly',   price: '$54',  billingNote: 'every 3 months',  perMonth: '$18 / mo',       savingsVsMonthly: 'Save $3', link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_QUARTERLY },
   { id: 'semiannual', label: 'Semi-Annual', price: '$104', billingNote: 'every 6 months',  perMonth: '~$17.33 / mo',   savingsVsMonthly: 'Save $10', link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_SEMIANNUAL },
-  { id: 'annual',     label: 'Annual',      price: '$204', billingNote: 'per year',         perMonth: '$17 / mo',   savingsVsMonthly: 'Save $24', link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_ANNUAL },
+  { id: 'annual',     label: 'Annual',      price: '$159', billingNote: 'per year',         perMonth: '$13.25 / mo', savingsVsMonthly: 'Save $69', link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_ANNUAL },
 ] as const;
 
 export function UpgradeModal({ isOpen, onClose, featureName }: { isOpen: boolean, onClose: () => void, featureName: string }) {

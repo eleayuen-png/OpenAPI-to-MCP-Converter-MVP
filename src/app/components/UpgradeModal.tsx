@@ -41,10 +41,10 @@ const PLANS = [
   {
     id: 'annual',
     label: 'Annual',
-    price: '$204',
+    price: '$159',
     billingNote: 'per year',
-    perMonth: '$17 / mo',
-    savingsVsMonthly: 'Save $24',
+    perMonth: '$13.25 / mo',
+    savingsVsMonthly: 'Save $69',
     link: () => import.meta.env.VITE_STRIPE_PAYMENT_LINK_ANNUAL,
   },
 ] as const;

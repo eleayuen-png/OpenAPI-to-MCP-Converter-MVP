@@ -49,7 +49,7 @@ jobs:
           VITE_STRIPE_PAYMENT_LINK_MONTHLY: https://buy.stripe.com/6oU00jbfRcjV2Vk97Sew800
           VITE_STRIPE_PAYMENT_LINK_QUARTERLY: https://buy.stripe.com/6oU7sLgAbes33Zock4ew803
           VITE_STRIPE_PAYMENT_LINK_SEMIANNUAL: https://buy.stripe.com/9B68wP2Jl97J7bAgAkew804
-          VITE_STRIPE_PAYMENT_LINK_ANNUAL: https://buy.stripe.com/7sYfZhabNes37bA4RCew805
+          VITE_STRIPE_PAYMENT_LINK_ANNUAL: https://buy.stripe.com/aFadR983Fes3fI683Oew806
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
