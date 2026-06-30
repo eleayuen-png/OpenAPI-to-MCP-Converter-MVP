@@ -1,19 +1,23 @@
 import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router';
-import { 
-  ChevronRight, 
-  ChevronLeft, 
-  Filter, 
-  Search, 
-  Check, 
-  Sparkles, 
-  Loader2, 
-  AlertCircle, 
-  Zap, 
-  Terminal, 
+import {
+  ChevronRight,
+  ChevronLeft,
+  Filter,
+  Search,
+  Check,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  Zap,
+  Terminal,
   Database,
-  Lightbulb
+  Lightbulb,
+  Settings,
+  X,
 } from 'lucide-react';
+// @ts-ignore
+import type { PaginationConfig } from '../context/AppContext';
 
 /**
  * 🛑 PREVIEW BRIDGE logic
@@ -56,12 +60,16 @@ export default function Prune() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const context = useAppBridge() as any;
-  const { 
-    endpoints = [], 
-    selectedEndpoints = new Set(), 
+  const {
+    endpoints = [],
+    selectedEndpoints = new Set(),
     setSelectedEndpoints,
-    user 
+    paginationConfig = {},
+    setPaginationConfig,
+    user,
   } = context || {};
+
+  const [paginationModalId, setPaginationModalId] = useState<string | null>(null);
 
   // 1. Magic Suggest Timer logic
   useEffect(() => {
@@ -89,6 +97,13 @@ export default function Prune() {
     });
     return groups;
   }, [endpoints, searchQuery]);
+
+  const PAGINATION_KEYWORDS = ['cursor', 'page', 'offset', 'limit', 'per_page', 'page_token', 'next', 'after', 'before', 'skip', 'take'];
+  const isPaginatable = (ep: any) =>
+    ep.method === 'GET' &&
+    (ep.parameters || []).some((p: any) =>
+      PAGINATION_KEYWORDS.some(kw => p.name?.toLowerCase().includes(kw))
+    );
 
   const toggleEndpoint = (id: string) => {
     const newSet = new Set(selectedEndpoints);
@@ -221,24 +236,41 @@ export default function Prune() {
                   const id = ep.id || `${ep.method}:${ep.path}`;
                   const isSelected = selectedEndpoints.has(id);
                   return (
-                    <div key={id} onClick={() => toggleEndpoint(id)} className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 cursor-pointer transition-all ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
-                      <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-all ${
-                            isSelected 
-                              ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-sm' 
-                              : 'border-slate-300 dark:border-slate-600'
-                          }`}>
-                        {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
+                    <div key={id} className={`p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-all ${isSelected ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
+                      <div onClick={() => toggleEndpoint(id)} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
+                        <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-sm'
+                                : 'border-slate-300 dark:border-slate-600'
+                            }`}>
+                          {isSelected && <Check className="h-3.5 w-3.5 stroke-[3px]" />}
+                        </div>
+                        <div className={`flex-shrink-0 px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
+                          ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' :
+                          ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' :
+                          'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {ep.method.toUpperCase()}
+                        </div>
+                        <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
+                          {ep.path}
+                        </div>
                       </div>
-                      <div className={`px-2 py-0.5 text-[10px] font-black rounded border tracking-tighter ${
-                        ep.method === 'GET' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400' : 
-                        ep.method === 'POST' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400' : 
-                        'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
-                        {ep.method.toUpperCase()}
-                      </div>
-                      <div className="flex-1 font-mono text-xs font-semibold text-[#141B41] dark:text-blue-100 truncate">
-                        {ep.path}
-                      </div>
+                      {ep.method === 'GET' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setPaginationModalId(id); }}
+                          title={paginationConfig[id]?.enabled ? 'Auto-pagination ON' : 'Configure auto-pagination'}
+                          className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
+                            paginationConfig[id]?.enabled
+                              ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                              : isPaginatable(ep)
+                              ? 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                              : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'
+                          }`}
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -247,6 +279,20 @@ export default function Prune() {
           );
         })}
       </div>
+
+      {paginationModalId && (
+        <PaginationModal
+          endpointId={paginationModalId}
+          config={paginationConfig[paginationModalId]}
+          onSave={(cfg) => {
+            if (setPaginationConfig) {
+              setPaginationConfig({ ...paginationConfig, [paginationModalId]: cfg });
+            }
+            setPaginationModalId(null);
+          }}
+          onClose={() => setPaginationModalId(null)}
+        />
+      )}
 
       <div className="mt-12 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-8">
         <button onClick={() => navigate('/')} className="text-slate-600 dark:text-slate-400 font-medium transition-all hover:-translate-x-1 flex items-center gap-1">
@@ -260,6 +306,134 @@ export default function Prune() {
           Continue to Macros <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Pagination Settings Modal ─────────────────────────────────────────────────
+
+interface PaginationModalProps {
+  endpointId: string;
+  config: PaginationConfig | undefined;
+  onSave: (config: PaginationConfig) => void;
+  onClose: () => void;
+}
+
+const DEFAULT_CONFIG: PaginationConfig = {
+  enabled: true,
+  itemsPath: 'results',
+  cursorPath: 'next_page_token',
+  cursorParam: 'cursor',
+  maxItems: 500,
+};
+
+function PaginationModal({ endpointId, config, onSave, onClose }: PaginationModalProps) {
+  const [form, setForm] = useState<PaginationConfig>(config ?? DEFAULT_CONFIG);
+
+  const set = (field: keyof PaginationConfig, value: any) =>
+    setForm(prev => ({ ...prev, [field]: value }));
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm">
+      <div className="bg-white dark:bg-[#111827] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+
+        <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h3 className="font-bold text-[#141B41] dark:text-white">Auto-Pagination</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate max-w-xs">{endpointId}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Enable toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-sm text-[#141B41] dark:text-white">Auto-fetch all pages</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Backend loops through pages and returns a single array</p>
+            </div>
+            <button
+              onClick={() => set('enabled', !form.enabled)}
+              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${form.enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+            >
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${form.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {form.enabled && (
+            <>
+              <Field
+                label="Items array path"
+                hint='Dot-path to the list in the response, e.g. "results" or "data.items"'
+                value={form.itemsPath}
+                onChange={v => set('itemsPath', v)}
+                placeholder="results"
+              />
+              <Field
+                label="Next cursor path"
+                hint='Dot-path to the next-page token in the response, e.g. "next_page_token"'
+                value={form.cursorPath}
+                onChange={v => set('cursorPath', v)}
+                placeholder="next_page_token"
+              />
+              <Field
+                label="Cursor query param"
+                hint='Query param name to send the cursor back, e.g. "cursor" or "page_token"'
+                value={form.cursorParam}
+                onChange={v => set('cursorParam', v)}
+                placeholder="cursor"
+              />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Max items cap
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={form.maxItems}
+                  onChange={e => set('maxItems', Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white"
+                />
+                <p className="text-xs text-slate-400 mt-1">Results truncated at this count to protect LLM context window</p>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex gap-3 p-5 border-t border-slate-200 dark:border-slate-800">
+          <button onClick={onClose} className="flex-1 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(form)}
+            className="flex-1 py-2 text-sm font-bold text-white bg-[#141B41] dark:bg-blue-600 hover:bg-[#1a2352] dark:hover:bg-blue-700 rounded-lg transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, value, onChange, placeholder }: {
+  label: string; hint: string; value: string;
+  onChange: (v: string) => void; placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white font-mono"
+      />
+      <p className="text-xs text-slate-400 mt-1">{hint}</p>
     </div>
   );
 }

@@ -90,6 +90,14 @@ export interface DeploymentInfo {
 
 // --- 3. CONTEXT DEFINITION ---
 
+interface PaginationConfig {
+  enabled: boolean;
+  itemsPath: string;
+  cursorPath: string;
+  cursorParam: string;
+  maxItems: number;
+}
+
 interface AppContextType {
   endpoints: Endpoint[];
   setEndpoints: (val: Endpoint[]) => void;
@@ -99,6 +107,7 @@ interface AppContextType {
   setDeploymentInfo: (info: DeploymentInfo | null) => void;
   piiMasking: boolean;
   setPiiMasking: (enabled: boolean) => void;
+  paginationConfig: Record<string, PaginationConfig>;
   isPro: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
@@ -435,7 +444,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 }
 
 export function DeployPage() {
-  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, targetBaseUrl, setTargetBaseUrl, user } = useApp();
   const posthog = usePostHog();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
@@ -456,17 +465,25 @@ export function DeployPage() {
 
     try {
       const selectedDetails = endpoints.filter((ep: any) => selectedEndpoints.has(`${ep.method}:${ep.path}`));
-      
+
+      // Build a filtered paginationConfig containing only selected endpoints
+      const selectedPaginationConfig: Record<string, any> = {};
+      selectedDetails.forEach((ep: any) => {
+        const key = `${ep.method}:${ep.path}`;
+        if (paginationConfig[key]?.enabled) selectedPaginationConfig[key] = paginationConfig[key];
+      });
+
       setPiiMasking(!!piiMasking);
       setTargetBaseUrl(baseUrl.trim());
-      
+
       const response = await fetch('https://mcp-backend-q8y7.onrender.com/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          endpoints: selectedDetails, 
-          baseUrl: baseUrl.trim(), 
-          piiMasking: !!piiMasking 
+        body: JSON.stringify({
+          endpoints: selectedDetails,
+          baseUrl: baseUrl.trim(),
+          piiMasking: !!piiMasking,
+          paginationConfig: selectedPaginationConfig,
         })
       });
       
@@ -519,6 +536,7 @@ export default function App() {
   const [selectedEndpoints, setSelectedEndpointsState] = useState<Set<string>>(new Set());
   const [deploymentInfo, setDeploymentInfoState] = useState<DeploymentInfo | null>(null);
   const [piiMasking, setPiiMaskingState] = useState(false);
+  const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
   const [syncing, setSyncing] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -598,6 +616,9 @@ export default function App() {
         
         if (data.endpoints) setEndpointsState(data.endpoints);
         if (data.deploymentInfo) setDeploymentInfoState(data.deploymentInfo);
+        if (data.paginationConfig && typeof data.paginationConfig === 'object') {
+          setPaginationConfigState(data.paginationConfig);
+        }
       }
       setSyncing(false);
     }, (err) => {
@@ -647,8 +668,9 @@ export default function App() {
     },
     deploymentInfo, 
     setDeploymentInfo: (val: any) => { setDeploymentInfoState(val); syncToCloud({ deploymentInfo: val }); },
-    piiMasking, 
+    piiMasking,
     setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
+    paginationConfig,
     isPro, 
     targetBaseUrl, 
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },

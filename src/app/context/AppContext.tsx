@@ -33,6 +33,14 @@ declare global {
   var __initial_auth_token: string | undefined;
 }
 
+export interface PaginationConfig {
+  enabled: boolean;
+  itemsPath: string;   // dot-path to the array in the response, e.g. "results" or "data.items"
+  cursorPath: string;  // dot-path to the next-cursor token, e.g. "next_page_token"
+  cursorParam: string; // query param name to send the cursor back, e.g. "cursor"
+  maxItems: number;
+}
+
 export interface MacroTool {
   id: string;
   name: string;
@@ -76,6 +84,8 @@ interface AppContextType {
   setDeploymentInfo: (info: any | null) => void;
   piiMasking: boolean;
   setPiiMasking: (enabled: boolean) => void;
+  paginationConfig: Record<string, PaginationConfig>;
+  setPaginationConfig: (config: Record<string, PaginationConfig>) => void;
   isPro: boolean;
   isAdmin: boolean;
   targetBaseUrl: string;
@@ -114,6 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [piiMasking, setPiiMaskingState] = useState(false); // 🚩 DEFAULT: FALSE
   const [isPro, setIsProState] = useState(false);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
+  const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
 
   const [db, setDb] = useState<any>(null);
   const [auth, setAuth] = useState<any>(null);
@@ -180,7 +191,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (data.piiMasking !== undefined) {
            setPiiMaskingState(proStatus ? data.piiMasking : false);
         }
-        
+
+        if (data.paginationConfig && typeof data.paginationConfig === 'object') {
+          setPaginationConfigState(data.paginationConfig);
+        }
+
         // Robust hydration for Sets to prevent refresh wipe-outs
         if (data.selectedEndpoints) {
           if (Array.isArray(data.selectedEndpoints)) {
@@ -240,7 +255,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMacrosState([]);
     setDeploymentInfoState(null);
     setTargetBaseUrlState('');
-    setPiiMaskingState(false); // 🚩 RESET LOCALLY
+    setPiiMaskingState(false);
+    setPaginationConfigState({});
 
     if (user && db) {
       try {
@@ -333,6 +349,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPiiMaskingState(finalVal); 
       syncToCloud({ piiMasking: finalVal }); 
     },
+    paginationConfig,
+    setPaginationConfig: (val: Record<string, PaginationConfig>) => { setPaginationConfigState(val); syncToCloud({ paginationConfig: val }); },
     isPro,
     isAdmin: !!user && !user.isAnonymous && !!user.email && (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).includes((user.email ?? '').toLowerCase()),
     targetBaseUrl,
