@@ -108,6 +108,7 @@ interface AppContextType {
   piiMasking: boolean;
   setPiiMasking: (enabled: boolean) => void;
   paginationConfig: Record<string, PaginationConfig>;
+  credentials: any[];
   isPro: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
@@ -444,7 +445,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 }
 
 export function DeployPage() {
-  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, credentials, targetBaseUrl, setTargetBaseUrl, user } = useApp();
   const posthog = usePostHog();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
@@ -484,6 +485,7 @@ export function DeployPage() {
           baseUrl: baseUrl.trim(),
           piiMasking: !!piiMasking,
           paginationConfig: selectedPaginationConfig,
+          credentials: credentials || [],
         })
       });
       
@@ -537,6 +539,7 @@ export default function App() {
   const [deploymentInfo, setDeploymentInfoState] = useState<DeploymentInfo | null>(null);
   const [piiMasking, setPiiMaskingState] = useState(false);
   const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
+  const [credentials, setCredentialsState] = useState<any[]>([]);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
   const [syncing, setSyncing] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -619,6 +622,7 @@ export default function App() {
         if (data.paginationConfig && typeof data.paginationConfig === 'object') {
           setPaginationConfigState(data.paginationConfig);
         }
+        if (Array.isArray(data.credentials)) setCredentialsState(data.credentials);
       }
       setSyncing(false);
     }, (err) => {
@@ -671,8 +675,9 @@ export default function App() {
     piiMasking,
     setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
     paginationConfig,
-    isPro, 
-    targetBaseUrl, 
+    credentials,
+    isPro,
+    targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },
     syncing, 
     user, 

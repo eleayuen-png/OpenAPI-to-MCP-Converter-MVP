@@ -35,10 +35,16 @@ declare global {
 
 export interface PaginationConfig {
   enabled: boolean;
-  itemsPath: string;   // dot-path to the array in the response, e.g. "results" or "data.items"
-  cursorPath: string;  // dot-path to the next-cursor token, e.g. "next_page_token"
-  cursorParam: string; // query param name to send the cursor back, e.g. "cursor"
+  itemsPath: string;
+  cursorPath: string;
+  cursorParam: string;
   maxItems: number;
+}
+
+export interface DetectedScheme {
+  name: string;
+  authType: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'oauth2' | 'other';
+  paramName: string;
 }
 
 export interface MacroTool {
@@ -51,8 +57,10 @@ export interface MacroTool {
 export interface ApiCredential {
   id: string;
   name: string;
-  type: 'bearer' | 'api-key' | 'basic';
+  type: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'api-key';
   key: string;
+  headerName?: string;
+  queryParam?: string;
   createdAt: Date;
 }
 
@@ -86,6 +94,8 @@ interface AppContextType {
   setPiiMasking: (enabled: boolean) => void;
   paginationConfig: Record<string, PaginationConfig>;
   setPaginationConfig: (config: Record<string, PaginationConfig>) => void;
+  detectedAuthSchemes: DetectedScheme[];
+  setDetectedAuthSchemes: (schemes: DetectedScheme[]) => void;
   isPro: boolean;
   isAdmin: boolean;
   targetBaseUrl: string;
@@ -125,6 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isPro, setIsProState] = useState(false);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
   const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
+  const [detectedAuthSchemes, setDetectedAuthSchemesState] = useState<DetectedScheme[]>([]);
 
   const [db, setDb] = useState<any>(null);
   const [auth, setAuth] = useState<any>(null);
@@ -196,6 +207,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setPaginationConfigState(data.paginationConfig);
         }
 
+        if (Array.isArray(data.detectedAuthSchemes)) {
+          setDetectedAuthSchemesState(data.detectedAuthSchemes);
+        }
+
         // Robust hydration for Sets to prevent refresh wipe-outs
         if (data.selectedEndpoints) {
           if (Array.isArray(data.selectedEndpoints)) {
@@ -257,6 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTargetBaseUrlState('');
     setPiiMaskingState(false);
     setPaginationConfigState({});
+    setDetectedAuthSchemesState([]);
 
     if (user && db) {
       try {
@@ -267,7 +283,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           macros: [],
           deploymentInfo: null,
           targetBaseUrl: '',
-          piiMasking: false // 🚩 RESET CLOUD
+          piiMasking: false,
+          paginationConfig: {},
+          detectedAuthSchemes: []
         }, { merge: true });
       } catch (e: any) {
         console.warn("⚠️ Reset sync failed:", e.message);
@@ -351,6 +369,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     paginationConfig,
     setPaginationConfig: (val: Record<string, PaginationConfig>) => { setPaginationConfigState(val); syncToCloud({ paginationConfig: val }); },
+    detectedAuthSchemes,
+    setDetectedAuthSchemes: (val: DetectedScheme[]) => { setDetectedAuthSchemesState(val); syncToCloud({ detectedAuthSchemes: val }); },
     isPro,
     isAdmin: !!user && !user.isAnonymous && !!user.email && (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).includes((user.email ?? '').toLowerCase()),
     targetBaseUrl,

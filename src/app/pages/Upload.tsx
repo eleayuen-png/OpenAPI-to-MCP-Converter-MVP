@@ -23,7 +23,7 @@ export default function Upload() {
    * 2. CONTEXT EXTRACTION
    * resetWorkspace is used to clear stale deployment data when a new file is uploaded.
    */
-  const { setEndpoints, setTargetBaseUrl, resetWorkspace } = useApp() as any;
+  const { setEndpoints, setTargetBaseUrl, resetWorkspace, setDetectedAuthSchemes } = useApp() as any;
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<{ name: string; size: string } | null>(null);
@@ -84,16 +84,29 @@ export default function Upload() {
           throw new Error("No valid GET/POST/PUT/DELETE endpoints found in this file.");
         }
 
-        /**
-         * 🚀 CRITICAL BUG FIX
-         * Wipe the stale deployment info and project state BEFORE setting new data.
-         * This ensures Step 5 generates a fresh key for the new file.
-         */
+        // Parse security schemes from the spec
+        const rawSchemes: Record<string, any> = api.components?.securitySchemes || (api as any).securityDefinitions || {};
+        const detectedSchemes = Object.entries(rawSchemes).map(([name, scheme]: [string, any]) => {
+          let authType: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'oauth2' | 'other' = 'other';
+          let paramName = '';
+          if (scheme.type === 'http') {
+            const s = (scheme.scheme || '').toLowerCase();
+            if (s === 'bearer') { authType = 'bearer'; paramName = 'Authorization'; }
+            else if (s === 'basic') { authType = 'basic'; paramName = 'Authorization'; }
+          } else if (scheme.type === 'apiKey') {
+            if (scheme.in === 'header') { authType = 'apiKey-header'; paramName = scheme.name || 'X-API-Key'; }
+            else if (scheme.in === 'query') { authType = 'apiKey-query'; paramName = scheme.name || 'api_key'; }
+          } else if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') {
+            authType = 'oauth2'; paramName = 'Authorization';
+          }
+          return { name, authType, paramName };
+        });
+
         if (typeof resetWorkspace === 'function') {
           await resetWorkspace();
         }
 
-        // Now populate with new project data
+        setDetectedAuthSchemes(detectedSchemes);
         setEndpoints(mappedEndpoints);
         if (suggestedUrl) {
           setTargetBaseUrl(suggestedUrl);
