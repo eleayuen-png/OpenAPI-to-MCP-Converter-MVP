@@ -293,7 +293,8 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
   const [copied, setCopied] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
   const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude' | 'install'>('cursor');
-  
+  const [shellType, setShellType] = useState<'bash' | 'powershell'>('bash');
+
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(info.serverUrl);
     setCopied(true);
@@ -306,7 +307,9 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
     setTimeout(() => setCopiedSnippet(false), 2000);
   };
 
-  const installCmd = `curl -fsSL https://raw.githubusercontent.com/eleayuen-png/mcp-backend/main/link.js -o mcp-link.js && node mcp-link.js ${info.serverUrl}`;
+  const installCmdBash = `curl -fsSL https://raw.githubusercontent.com/eleayuen-png/mcp-backend/main/link.js -o mcp-link.js && node mcp-link.js ${info.serverUrl}`;
+  const installCmdPowershell = `Invoke-WebRequest -Uri "https://raw.githubusercontent.com/eleayuen-png/mcp-backend/main/link.js" -OutFile "mcp-link.js"; node mcp-link.js ${info.serverUrl}`;
+  const installCmd = shellType === 'bash' ? installCmdBash : installCmdPowershell;
 
   const cursorSnippet = JSON.stringify({
     "mcpServers": {
@@ -411,7 +414,9 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
                 </h3>
                 <ul className="space-y-4">
                   {[
-                    'Open Terminal (Mac/Linux) or Command Prompt (Windows).',
+                    shellType === 'bash'
+                      ? 'Open Terminal (Mac/Linux) or Git Bash / WSL on Windows. (PowerShell does not support && — click "PowerShell" above if using Windows PowerShell.)'
+                      : 'Open PowerShell (Windows) or PowerShell Core (any OS). Regular Windows Command Prompt does not work — use PowerShell instead.',
                     'Copy the command on the right and paste it in, then press Enter.',
                     'The script finds Claude Desktop and Cursor automatically — no file editing needed.',
                     'Restart Claude Desktop or Cursor to load your new MCP tools.',
@@ -456,12 +461,36 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
                   <Terminal className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span className="text-xs font-bold text-[#141B41] dark:text-slate-300 uppercase tracking-widest">Command</span>
                 </div>
-                <button
-                  onClick={() => handleCopySnippet(installCmd)}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1.5"
-                >
-                  {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Command</>}
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                    <button
+                      onClick={() => setShellType('bash')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${
+                        shellType === 'bash'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white'
+                      }`}
+                    >
+                      Bash
+                    </button>
+                    <button
+                      onClick={() => setShellType('powershell')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${
+                        shellType === 'powershell'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-[#141B41] dark:hover:text-white'
+                      }`}
+                    >
+                      PowerShell
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleCopySnippet(installCmd)}
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1.5"
+                  >
+                    {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Command</>}
+                  </button>
+                </div>
               </div>
 
               <div className="bg-slate-900 dark:bg-black/40 border border-slate-800 rounded-xl p-4">
