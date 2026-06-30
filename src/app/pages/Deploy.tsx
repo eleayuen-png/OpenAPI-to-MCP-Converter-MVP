@@ -401,24 +401,90 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
         </div>
 
         {activeTab === 'install' ? (
-          <div className="p-10 flex flex-col items-center text-center min-h-[300px] justify-center">
-            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-5">
-              <Terminal className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+          <div className="flex flex-col lg:flex-row min-h-[300px]">
+            {/* Left: steps */}
+            <div className="lg:w-2/5 p-6 border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col gap-6">
+              <div>
+                <h3 className="text-sm font-bold text-[#141B41] dark:text-white mb-4 flex items-center gap-2">
+                  <Pointer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  Steps
+                </h3>
+                <ul className="space-y-4">
+                  {[
+                    'Open Terminal (Mac/Linux) or Command Prompt (Windows).',
+                    'Copy the command on the right and paste it in, then press Enter.',
+                    'The script finds Claude Desktop and Cursor automatically — no file editing needed.',
+                    'Restart Claude Desktop or Cursor to load your new MCP tools.',
+                  ].map((step, idx) => (
+                    <li key={idx} className="flex gap-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                      <span className="flex items-center justify-center w-5 h-5 rounded bg-blue-100 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 font-bold shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-auto">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prerequisites</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Node.js', hint: 'node --version to check · nodejs.org' },
+                    { label: 'curl', hint: 'Pre-installed on macOS and Windows 10+' },
+                  ].map(({ label, hint }) => (
+                    <div key={label} className="group relative">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300 cursor-default border border-slate-200 dark:border-slate-700">
+                        {label}
+                      </span>
+                      <span className="absolute bottom-full left-0 mb-1.5 hidden group-hover:flex px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] whitespace-nowrap shadow-lg z-10">
+                        {hint}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
+                  The script only modifies <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">mcpServers</code> — it never removes existing entries.
+                </p>
+              </div>
             </div>
-            <h3 className="text-lg font-bold text-[#141B41] dark:text-white mb-2">One-Command Setup</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md">
-              Automatically detects Claude Desktop and Cursor on your machine and injects the MCP config. Requires <strong>Node.js</strong> and <strong>curl</strong>.
-            </p>
-            <div className="w-full max-w-2xl bg-slate-900 dark:bg-black/50 border border-slate-800 rounded-xl p-4 text-left relative mb-3">
-              <pre className="text-[11px] font-mono text-green-400 whitespace-pre-wrap break-all pr-20">{installCmd}</pre>
-              <button
-                onClick={() => handleCopySnippet(installCmd)}
-                className="absolute top-3 right-3 text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg"
-              >
-                {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
-              </button>
+
+            {/* Right: command + what it does */}
+            <div className="flex-1 p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-bold text-[#141B41] dark:text-slate-300 uppercase tracking-widest">Command</span>
+                </div>
+                <button
+                  onClick={() => handleCopySnippet(installCmd)}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1.5"
+                >
+                  {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Command</>}
+                </button>
+              </div>
+
+              <div className="bg-slate-900 dark:bg-black/40 border border-slate-800 rounded-xl p-4">
+                <pre className="text-[11px] font-mono text-green-400 whitespace-pre-wrap break-all leading-relaxed">{installCmd}</pre>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">What this script does</p>
+                <ul className="space-y-2">
+                  {[
+                    { icon: '📥', text: 'Downloads a small helper script (link.js) from GitHub' },
+                    { icon: '🔍', text: 'Detects Claude Desktop and Cursor config file locations for your OS' },
+                    { icon: '✏️', text: 'Adds your MCP server to the mcpServers section of each config found' },
+                    { icon: '🔒', text: 'Never stores credentials — only the SSE server URL is written' },
+                  ].map(({ icon, text }) => (
+                    <li key={text} className="flex gap-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      <span className="shrink-0">{icon}</span>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-            <p className="text-xs text-slate-400">Works on macOS, Linux, and Windows 10+</p>
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row min-h-[300px]">
