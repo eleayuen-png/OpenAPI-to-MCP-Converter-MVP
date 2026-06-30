@@ -19,15 +19,17 @@ function credentialLabel(cred: any) {
   if (cred.type === 'apiKey-header' || cred.type === 'api-key') return `API Key — ${cred.headerName || 'X-API-Key'} (header)`;
   if (cred.type === 'apiKey-query') return `API Key — ${cred.queryParam || 'api_key'} (query param)`;
   if (cred.type === 'basic') return 'Basic Auth';
+  if (cred.type === 'oauth2-cc') return 'OAuth2 — Client Credentials';
+  if (cred.type === 'oauth2-refresh') return 'OAuth2 — Refresh Token';
   return cred.type;
 }
 
-function schemeAuthTypeLabel(authType: string, paramName: string) {
+function schemeAuthTypeLabel(authType: string, paramName: string, tokenUrl?: string) {
   if (authType === 'bearer') return 'Bearer Token';
   if (authType === 'apiKey-header') return `API Key — ${paramName} (header)`;
   if (authType === 'apiKey-query') return `API Key — ${paramName} (query)`;
   if (authType === 'basic') return 'Basic Auth';
-  if (authType === 'oauth2') return 'OAuth2 (use Bearer Token)';
+  if (authType === 'oauth2') return tokenUrl ? `OAuth2 — ${tokenUrl.replace(/^https?:\/\//, '').split('/')[0]}` : 'OAuth2';
   return authType;
 }
 
@@ -41,25 +43,52 @@ export default function Auth() {
   const [token, setToken] = useState('');
   const [headerName, setHeaderName] = useState('X-API-Key');
   const [queryParam, setQueryParam] = useState('api_key');
+  const [oauthTokenUrl, setOauthTokenUrl] = useState('');
+  const [oauthClientId, setOauthClientId] = useState('');
+  const [oauthRefreshToken, setOauthRefreshToken] = useState('');
+  const [oauthScopes, setOauthScopes] = useState('');
+
+  const isOAuth2 = type === 'oauth2-cc' || type === 'oauth2-refresh';
+  const canAdd = !!name && (
+    (type === 'oauth2-cc' && !!token && !!oauthTokenUrl && !!oauthClientId) ||
+    (type === 'oauth2-refresh' && !!token && !!oauthTokenUrl && !!oauthClientId && !!oauthRefreshToken) ||
+    (!isOAuth2 && !!token)
+  );
+
+  const resetForm = () => {
+    setName(''); setToken('');
+    setHeaderName('X-API-Key'); setQueryParam('api_key');
+    setOauthTokenUrl(''); setOauthClientId(''); setOauthRefreshToken(''); setOauthScopes('');
+  };
 
   const handleAdd = () => {
-    if (!name || !token) return;
+    if (!canAdd) return;
     const cred: any = { id: Math.random().toString(), name, type, key: token };
     if (type === 'apiKey-header') cred.headerName = headerName || 'X-API-Key';
     if (type === 'apiKey-query') cred.queryParam = queryParam || 'api_key';
+    if (isOAuth2) {
+      cred.tokenUrl = oauthTokenUrl;
+      cred.clientId = oauthClientId;
+      if (type === 'oauth2-refresh') cred.refreshToken = oauthRefreshToken;
+      if (oauthScopes) cred.scopes = oauthScopes;
+    }
     setCredentials([...credentials, cred]);
-    setName('');
-    setToken('');
-    setHeaderName('X-API-Key');
-    setQueryParam('api_key');
+    resetForm();
   };
 
   const quickFill = (scheme: any) => {
-    const mappedType = scheme.authType === 'oauth2' ? 'bearer' : scheme.authType === 'other' ? 'bearer' : scheme.authType;
-    setType(mappedType);
-    setName(scheme.name);
-    if (scheme.authType === 'apiKey-header') setHeaderName(scheme.paramName || 'X-API-Key');
-    if (scheme.authType === 'apiKey-query') setQueryParam(scheme.paramName || 'api_key');
+    if (scheme.authType === 'oauth2') {
+      setType('oauth2-cc');
+      setName(scheme.name);
+      if (scheme.tokenUrl) setOauthTokenUrl(scheme.tokenUrl);
+      if (scheme.scopes) setOauthScopes(scheme.scopes);
+    } else {
+      const mappedType = scheme.authType === 'other' ? 'bearer' : scheme.authType;
+      setType(mappedType);
+      setName(scheme.name);
+      if (scheme.authType === 'apiKey-header') setHeaderName(scheme.paramName || 'X-API-Key');
+      if (scheme.authType === 'apiKey-query') setQueryParam(scheme.paramName || 'api_key');
+    }
   };
 
   const handleRemove = (id: string) => {
@@ -142,7 +171,7 @@ export default function Auth() {
                   >
                     <span className="font-bold">{scheme.name}</span>
                     <span className="text-blue-400 dark:text-blue-500">—</span>
-                    <span>{schemeAuthTypeLabel(scheme.authType, scheme.paramName)}</span>
+                    <span>{schemeAuthTypeLabel(scheme.authType, scheme.paramName, scheme.tokenUrl)}</span>
                     <span className="ml-1 text-blue-500 dark:text-blue-400">Quick-fill →</span>
                   </button>
                 ))}
@@ -172,8 +201,11 @@ export default function Auth() {
                     <option value="apiKey-header">API Key (Header)</option>
                     <option value="apiKey-query">API Key (Query Param)</option>
                     <option value="basic">Basic Auth</option>
+                    <option value="oauth2-cc">OAuth2 — Client Credentials</option>
+                    <option value="oauth2-refresh">OAuth2 — Refresh Token</option>
                   </select>
                 </div>
+
                 {type === 'apiKey-header' && (
                   <div>
                     <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">Header Name</label>
@@ -194,21 +226,67 @@ export default function Auth() {
                     />
                   </div>
                 )}
+
+                {isOAuth2 && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">Token URL <span className="text-red-400">*</span></label>
+                      <input
+                        type="url" value={oauthTokenUrl} onChange={(e) => setOauthTokenUrl(e.target.value)}
+                        placeholder="https://api.example.com/oauth/token"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">Client ID <span className="text-red-400">*</span></label>
+                      <input
+                        type="text" value={oauthClientId} onChange={(e) => setOauthClientId(e.target.value)}
+                        placeholder="your-client-id"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">
-                    {type === 'basic' ? 'Credentials (user:password)' : 'Secret Token'}
+                    {isOAuth2 ? 'Client Secret' : type === 'basic' ? 'Credentials (user:password)' : 'Secret Token'}
+                    {isOAuth2 && <span className="text-red-400"> *</span>}
                   </label>
                   <input
                     type="password" value={token} onChange={(e) => setToken(e.target.value)}
-                    placeholder={type === 'basic' ? 'username:password' : 'Paste your key here'}
+                    placeholder={isOAuth2 ? 'your-client-secret' : type === 'basic' ? 'username:password' : 'Paste your key here'}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
                   />
                   {type === 'basic' && (
                     <p className="mt-1 text-xs text-slate-400">Enter as <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">username:password</code> — will be Base64-encoded automatically.</p>
                   )}
                 </div>
+
+                {type === 'oauth2-refresh' && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">Refresh Token <span className="text-red-400">*</span></label>
+                    <input
+                      type="password" value={oauthRefreshToken} onChange={(e) => setOauthRefreshToken(e.target.value)}
+                      placeholder="your-refresh-token"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
+                    />
+                  </div>
+                )}
+
+                {isOAuth2 && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#141B41] dark:text-slate-300 mb-2">Scopes <span className="text-slate-400 font-normal">(optional, space-separated)</span></label>
+                    <input
+                      type="text" value={oauthScopes} onChange={(e) => setOauthScopes(e.target.value)}
+                      placeholder="read write"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white transition-colors"
+                    />
+                  </div>
+                )}
+
                 <button
-                  onClick={handleAdd} disabled={!name || !token}
+                  onClick={handleAdd} disabled={!canAdd}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-50"
                 >
                   <Plus className="h-5 w-5" /> Save to Vault

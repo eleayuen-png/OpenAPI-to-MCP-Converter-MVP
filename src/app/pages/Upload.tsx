@@ -99,7 +99,17 @@ export default function Upload() {
           } else if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') {
             authType = 'oauth2'; paramName = 'Authorization';
           }
-          return { name, authType, paramName };
+
+          let tokenUrl = '';
+          let scopes = '';
+          if (scheme.type === 'oauth2') {
+            const flows = scheme.flows || {};
+            const flow = flows.clientCredentials || flows.authorizationCode || flows.password || flows.implicit || {};
+            tokenUrl = flow.tokenUrl || scheme.tokenUrl || '';
+            scopes = Object.keys(flow.scopes || scheme.scopes || {}).join(' ');
+          }
+
+          return { name, authType, paramName, ...(tokenUrl && { tokenUrl }), ...(scopes && { scopes }) };
         });
 
         if (typeof resetWorkspace === 'function') {

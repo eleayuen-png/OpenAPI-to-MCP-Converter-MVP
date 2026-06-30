@@ -45,6 +45,8 @@ export interface DetectedScheme {
   name: string;
   authType: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'oauth2' | 'other';
   paramName: string;
+  tokenUrl?: string;
+  scopes?: string;
 }
 
 export interface MacroTool {
@@ -57,10 +59,14 @@ export interface MacroTool {
 export interface ApiCredential {
   id: string;
   name: string;
-  type: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'api-key';
+  type: 'bearer' | 'apiKey-header' | 'apiKey-query' | 'basic' | 'api-key' | 'oauth2-cc' | 'oauth2-refresh';
   key: string;
   headerName?: string;
   queryParam?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  refreshToken?: string;
+  scopes?: string;
   createdAt: Date;
 }
 
