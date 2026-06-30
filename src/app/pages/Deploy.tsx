@@ -103,6 +103,11 @@ interface RateLimitInfo {
   source: 'spec' | 'header' | 'default';
 }
 
+interface EndpointRateLimit {
+  enabled: boolean;
+  requestsPerMinute: number;
+}
+
 interface AppContextType {
   endpoints: Endpoint[];
   setEndpoints: (val: Endpoint[]) => void;
@@ -115,6 +120,7 @@ interface AppContextType {
   paginationConfig: Record<string, PaginationConfig>;
   credentials: any[];
   detectedRateLimit: RateLimitInfo | null;
+  endpointRateLimits: Record<string, EndpointRateLimit>;
   isPro: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
@@ -571,7 +577,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 }
 
 export function DeployPage() {
-  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, credentials, detectedRateLimit, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, credentials, detectedRateLimit, endpointRateLimits, targetBaseUrl, setTargetBaseUrl, user } = useApp();
   const posthog = usePostHog();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
@@ -613,6 +619,7 @@ export function DeployPage() {
           paginationConfig: selectedPaginationConfig,
           credentials: credentials || [],
           rateLimitInfo: detectedRateLimit,
+          endpointRateLimits: endpointRateLimits || {},
         })
       });
       
@@ -679,6 +686,7 @@ export default function App() {
   const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
   const [credentials, setCredentialsState] = useState<any[]>([]);
   const [detectedRateLimit, setDetectedRateLimitState] = useState<RateLimitInfo | null>(null);
+  const [endpointRateLimits, setEndpointRateLimitsState] = useState<Record<string, EndpointRateLimit>>({});
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
   const [syncing, setSyncing] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -765,6 +773,9 @@ export default function App() {
         if (data.detectedRateLimit && typeof data.detectedRateLimit === 'object') {
           setDetectedRateLimitState(data.detectedRateLimit);
         }
+        if (data.endpointRateLimits && typeof data.endpointRateLimits === 'object') {
+          setEndpointRateLimitsState(data.endpointRateLimits);
+        }
       }
       setSyncing(false);
     }, (err) => {
@@ -819,6 +830,7 @@ export default function App() {
     paginationConfig,
     credentials,
     detectedRateLimit,
+    endpointRateLimits,
     isPro,
     targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },

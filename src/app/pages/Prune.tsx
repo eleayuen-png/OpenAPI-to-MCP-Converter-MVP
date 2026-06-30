@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react';
 // @ts-ignore
-import type { PaginationConfig } from '../context/AppContext';
+import type { PaginationConfig, EndpointRateLimit } from '../context/AppContext';
 
 /**
  * 🛑 PREVIEW BRIDGE logic
@@ -66,10 +66,14 @@ export default function Prune() {
     setSelectedEndpoints,
     paginationConfig = {},
     setPaginationConfig,
+    endpointRateLimits = {},
+    setEndpointRateLimits,
+    detectedRateLimit = null,
     user,
   } = context || {};
 
-  const [paginationModalId, setPaginationModalId] = useState<string | null>(null);
+  const [settingsModalId, setSettingsModalId] = useState<string | null>(null);
+  const [settingsModalMethod, setSettingsModalMethod] = useState<string>('GET');
 
   // 1. Magic Suggest Timer logic
   useEffect(() => {
@@ -256,21 +260,27 @@ export default function Prune() {
                           {ep.path}
                         </div>
                       </div>
-                      {ep.method === 'GET' && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setPaginationModalId(id); }}
-                          title={paginationConfig[id]?.enabled ? 'Auto-pagination ON' : 'Configure auto-pagination'}
-                          className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-                            paginationConfig[id]?.enabled
-                              ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                              : isPaginatable(ep)
-                              ? 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                              : 'text-slate-300 dark:text-slate-600 hover:text-slate-400'
-                          }`}
-                        >
-                          <Settings className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      {(() => {
+                        const hasPag = ep.method === 'GET' && paginationConfig[id]?.enabled;
+                        const hasRL = endpointRateLimits[id]?.enabled;
+                        const gearClass = hasPag && hasRL
+                          ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20'
+                          : hasPag
+                          ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                          : hasRL
+                          ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20'
+                          : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800';
+                        const title = [hasPag && 'Pagination ON', hasRL && 'Rate limit override ON'].filter(Boolean).join(' · ') || 'Configure endpoint settings';
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSettingsModalId(id); setSettingsModalMethod(ep.method); }}
+                            title={title}
+                            className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${gearClass}`}
+                          >
+                            <Settings className="h-3.5 w-3.5" />
+                          </button>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -280,17 +290,19 @@ export default function Prune() {
         })}
       </div>
 
-      {paginationModalId && (
-        <PaginationModal
-          endpointId={paginationModalId}
-          config={paginationConfig[paginationModalId]}
-          onSave={(cfg) => {
-            if (setPaginationConfig) {
-              setPaginationConfig({ ...paginationConfig, [paginationModalId]: cfg });
-            }
-            setPaginationModalId(null);
+      {settingsModalId && (
+        <EndpointSettingsModal
+          endpointId={settingsModalId}
+          method={settingsModalMethod}
+          paginationCfg={paginationConfig[settingsModalId]}
+          rateLimitOverride={endpointRateLimits[settingsModalId]}
+          detectedRateLimit={detectedRateLimit}
+          onSave={(pagCfg, rlCfg) => {
+            if (setPaginationConfig) setPaginationConfig({ ...paginationConfig, [settingsModalId]: pagCfg });
+            if (setEndpointRateLimits) setEndpointRateLimits({ ...endpointRateLimits, [settingsModalId]: rlCfg });
+            setSettingsModalId(null);
           }}
-          onClose={() => setPaginationModalId(null)}
+          onClose={() => setSettingsModalId(null)}
         />
       )}
 
@@ -310,16 +322,9 @@ export default function Prune() {
   );
 }
 
-// ── Pagination Settings Modal ─────────────────────────────────────────────────
+// ── Endpoint Settings Modal (Pagination + Rate Limit) ────────────────────────
 
-interface PaginationModalProps {
-  endpointId: string;
-  config: PaginationConfig | undefined;
-  onSave: (config: PaginationConfig) => void;
-  onClose: () => void;
-}
-
-const DEFAULT_CONFIG: PaginationConfig = {
+const DEFAULT_PAG_CONFIG: PaginationConfig = {
   enabled: true,
   itemsPath: 'results',
   cursorPath: 'next_page_token',
@@ -327,19 +332,35 @@ const DEFAULT_CONFIG: PaginationConfig = {
   maxItems: 500,
 };
 
-function PaginationModal({ endpointId, config, onSave, onClose }: PaginationModalProps) {
-  const [form, setForm] = useState<PaginationConfig>(config ?? DEFAULT_CONFIG);
+interface EndpointSettingsModalProps {
+  endpointId: string;
+  method: string;
+  paginationCfg: PaginationConfig | undefined;
+  rateLimitOverride: EndpointRateLimit | undefined;
+  detectedRateLimit: { requestsPerMinute: number; source: string } | null;
+  onSave: (pagination: PaginationConfig, rateLimit: EndpointRateLimit) => void;
+  onClose: () => void;
+}
 
-  const set = (field: keyof PaginationConfig, value: any) =>
-    setForm(prev => ({ ...prev, [field]: value }));
+function EndpointSettingsModal({ endpointId, method, paginationCfg, rateLimitOverride, detectedRateLimit, onSave, onClose }: EndpointSettingsModalProps) {
+  const isGet = method === 'GET';
+  const [tab, setTab] = useState<'pagination' | 'rateLimit'>(isGet ? 'pagination' : 'rateLimit');
+  const [pagForm, setPagForm] = useState<PaginationConfig>(paginationCfg ?? DEFAULT_PAG_CONFIG);
+  const [rlForm, setRlForm] = useState<EndpointRateLimit>(
+    rateLimitOverride ?? { enabled: false, requestsPerMinute: detectedRateLimit?.requestsPerMinute ?? 60 }
+  );
+
+  const setPag = (field: keyof PaginationConfig, value: any) =>
+    setPagForm(prev => ({ ...prev, [field]: value }));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm">
       <div className="bg-white dark:bg-[#111827] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
 
+        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
           <div>
-            <h3 className="font-bold text-[#141B41] dark:text-white">Auto-Pagination</h3>
+            <h3 className="font-bold text-[#141B41] dark:text-white">Endpoint Settings</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate max-w-xs">{endpointId}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -347,58 +368,87 @@ function PaginationModal({ endpointId, config, onSave, onClose }: PaginationModa
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Enable toggle */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-sm text-[#141B41] dark:text-white">Auto-fetch all pages</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Backend loops through pages and returns a single array</p>
-            </div>
+        {/* Tabs — only shown for GET endpoints (non-GET only has Rate Limit) */}
+        {isGet && (
+          <div className="flex border-b border-slate-200 dark:border-slate-800">
             <button
-              onClick={() => set('enabled', !form.enabled)}
-              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${form.enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+              onClick={() => setTab('pagination')}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === 'pagination' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
             >
-              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${form.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              Pagination
+            </button>
+            <button
+              onClick={() => setTab('rateLimit')}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === 'rateLimit' ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-500 dark:border-amber-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+            >
+              Rate Limit
             </button>
           </div>
+        )}
 
-          {form.enabled && (
+        <div className="p-5 space-y-4">
+          {tab === 'pagination' ? (
             <>
-              <Field
-                label="Items array path"
-                hint='Dot-path to the list in the response, e.g. "results" or "data.items"'
-                value={form.itemsPath}
-                onChange={v => set('itemsPath', v)}
-                placeholder="results"
-              />
-              <Field
-                label="Next cursor path"
-                hint='Dot-path to the next-page token in the response, e.g. "next_page_token"'
-                value={form.cursorPath}
-                onChange={v => set('cursorPath', v)}
-                placeholder="next_page_token"
-              />
-              <Field
-                label="Cursor query param"
-                hint='Query param name to send the cursor back, e.g. "cursor" or "page_token"'
-                value={form.cursorParam}
-                onChange={v => set('cursorParam', v)}
-                placeholder="cursor"
-              />
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Max items cap
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={5000}
-                  value={form.maxItems}
-                  onChange={e => set('maxItems', Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white"
-                />
-                <p className="text-xs text-slate-400 mt-1">Results truncated at this count to protect LLM context window</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-[#141B41] dark:text-white">Auto-fetch all pages</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Backend loops through pages and returns a single array</p>
+                </div>
+                <button
+                  onClick={() => setPag('enabled', !pagForm.enabled)}
+                  className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${pagForm.enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${pagForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
+              {pagForm.enabled && (
+                <>
+                  <Field label="Items array path" hint='Dot-path to the list in the response, e.g. "results" or "data.items"' value={pagForm.itemsPath} onChange={v => setPag('itemsPath', v)} placeholder="results" />
+                  <Field label="Next cursor path" hint='Dot-path to the next-page token in the response, e.g. "next_page_token"' value={pagForm.cursorPath} onChange={v => setPag('cursorPath', v)} placeholder="next_page_token" />
+                  <Field label="Cursor query param" hint='Query param name to send the cursor back, e.g. "cursor" or "page_token"' value={pagForm.cursorParam} onChange={v => setPag('cursorParam', v)} placeholder="cursor" />
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Max items cap</label>
+                    <input type="number" min={1} max={5000} value={pagForm.maxItems} onChange={e => setPag('maxItems', Number(e.target.value))} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[#141B41] dark:text-white" />
+                    <p className="text-xs text-slate-400 mt-1">Results truncated at this count to protect LLM context window</p>
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-[#141B41] dark:text-white">Override rate limit</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Apply a stricter throttle to this endpoint only</p>
+                </div>
+                <button
+                  onClick={() => setRlForm(prev => ({ ...prev, enabled: !prev.enabled }))}
+                  className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${rlForm.enabled ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${rlForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {rlForm.enabled && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Requests per minute</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={6000}
+                    value={rlForm.requestsPerMinute}
+                    onChange={e => setRlForm(prev => ({ ...prev, requestsPerMinute: Math.max(1, Number(e.target.value)) }))}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-[#141B41] dark:text-white"
+                  />
+                  {detectedRateLimit && detectedRateLimit.source !== 'default' && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      Global spec limit: {detectedRateLimit.requestsPerMinute} req/min — set lower to throttle this endpoint harder
+                    </p>
+                  )}
+                  {(!detectedRateLimit || detectedRateLimit.source === 'default') && (
+                    <p className="text-xs text-slate-400 mt-1">Global default: 60 req/min — override for expensive endpoints like /generate-report</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -408,7 +458,7 @@ function PaginationModal({ endpointId, config, onSave, onClose }: PaginationModa
             Cancel
           </button>
           <button
-            onClick={() => onSave(form)}
+            onClick={() => onSave(pagForm, rlForm)}
             className="flex-1 py-2 text-sm font-bold text-white bg-[#141B41] dark:bg-blue-600 hover:bg-[#1a2352] dark:hover:bg-blue-700 rounded-lg transition-colors"
           >
             Save

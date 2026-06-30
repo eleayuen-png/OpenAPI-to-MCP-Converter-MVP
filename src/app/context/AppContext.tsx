@@ -54,6 +54,11 @@ export interface RateLimitInfo {
   source: 'spec' | 'header' | 'default';
 }
 
+export interface EndpointRateLimit {
+  enabled: boolean;
+  requestsPerMinute: number;
+}
+
 export interface MacroTool {
   id: string;
   name: string;
@@ -109,6 +114,8 @@ interface AppContextType {
   setDetectedAuthSchemes: (schemes: DetectedScheme[]) => void;
   detectedRateLimit: RateLimitInfo | null;
   setDetectedRateLimit: (info: RateLimitInfo | null) => void;
+  endpointRateLimits: Record<string, EndpointRateLimit>;
+  setEndpointRateLimits: (limits: Record<string, EndpointRateLimit>) => void;
   isPro: boolean;
   isAdmin: boolean;
   targetBaseUrl: string;
@@ -150,6 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
   const [detectedAuthSchemes, setDetectedAuthSchemesState] = useState<DetectedScheme[]>([]);
   const [detectedRateLimit, setDetectedRateLimitState] = useState<RateLimitInfo | null>(null);
+  const [endpointRateLimits, setEndpointRateLimitsState] = useState<Record<string, EndpointRateLimit>>({});
 
   const [db, setDb] = useState<any>(null);
   const [auth, setAuth] = useState<any>(null);
@@ -229,6 +237,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setDetectedRateLimitState(data.detectedRateLimit);
         }
 
+        if (data.endpointRateLimits && typeof data.endpointRateLimits === 'object') {
+          setEndpointRateLimitsState(data.endpointRateLimits);
+        }
+
         // Robust hydration for Sets to prevent refresh wipe-outs
         if (data.selectedEndpoints) {
           if (Array.isArray(data.selectedEndpoints)) {
@@ -292,6 +304,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPaginationConfigState({});
     setDetectedAuthSchemesState([]);
     setDetectedRateLimitState(null);
+    setEndpointRateLimitsState({});
 
     if (user && db) {
       try {
@@ -305,7 +318,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           piiMasking: false,
           paginationConfig: {},
           detectedAuthSchemes: [],
-          detectedRateLimit: null
+          detectedRateLimit: null,
+          endpointRateLimits: {}
         }, { merge: true });
       } catch (e: any) {
         console.warn("⚠️ Reset sync failed:", e.message);
@@ -393,6 +407,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDetectedAuthSchemes: (val: DetectedScheme[]) => { setDetectedAuthSchemesState(val); syncToCloud({ detectedAuthSchemes: val }); },
     detectedRateLimit,
     setDetectedRateLimit: (val: RateLimitInfo | null) => { setDetectedRateLimitState(val); syncToCloud({ detectedRateLimit: val }); },
+    endpointRateLimits,
+    setEndpointRateLimits: (val: Record<string, EndpointRateLimit>) => { setEndpointRateLimitsState(val); syncToCloud({ endpointRateLimits: val }); },
     isPro,
     isAdmin: !!user && !user.isAnonymous && !!user.email && (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).includes((user.email ?? '').toLowerCase()),
     targetBaseUrl,
