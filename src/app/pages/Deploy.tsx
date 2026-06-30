@@ -98,6 +98,11 @@ interface PaginationConfig {
   maxItems: number;
 }
 
+interface RateLimitInfo {
+  requestsPerMinute: number;
+  source: 'spec' | 'header' | 'default';
+}
+
 interface AppContextType {
   endpoints: Endpoint[];
   setEndpoints: (val: Endpoint[]) => void;
@@ -109,6 +114,7 @@ interface AppContextType {
   setPiiMasking: (enabled: boolean) => void;
   paginationConfig: Record<string, PaginationConfig>;
   credentials: any[];
+  detectedRateLimit: RateLimitInfo | null;
   isPro: boolean;
   targetBaseUrl: string;
   setTargetBaseUrl: (url: string) => void;
@@ -565,7 +571,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
 }
 
 export function DeployPage() {
-  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, credentials, targetBaseUrl, setTargetBaseUrl, user } = useApp();
+  const { selectedEndpoints, endpoints, deploymentInfo, setDeploymentInfo, piiMasking, setPiiMasking, paginationConfig, credentials, detectedRateLimit, targetBaseUrl, setTargetBaseUrl, user } = useApp();
   const posthog = usePostHog();
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState<string | null>(null);
@@ -606,6 +612,7 @@ export function DeployPage() {
           piiMasking: !!piiMasking,
           paginationConfig: selectedPaginationConfig,
           credentials: credentials || [],
+          rateLimitInfo: detectedRateLimit,
         })
       });
       
@@ -639,6 +646,17 @@ export function DeployPage() {
           </div>
         </div>
       )}
+      {detectedRateLimit && detectedRateLimit.source !== 'default' && !deploymentInfo && (
+        <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 rounded-xl p-3.5 flex items-start gap-3 text-blue-700 dark:text-blue-300 text-sm shadow-sm">
+          <div className="shrink-0 mt-0.5">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" /></svg>
+          </div>
+          <div>
+            <span className="font-semibold">Rate limit {detectedRateLimit.source === 'spec' ? 'detected in spec' : 'headers found'}: </span>
+            {detectedRateLimit.requestsPerMinute} req/min — backoff &amp; proactive throttle will be applied automatically.
+          </div>
+        </div>
+      )}
       {!deploymentInfo ? (
         <DeploymentPanel onDeploy={handleDeploy} isDeploying={isDeploying} baseUrl={baseUrl} setBaseUrl={setBaseUrl} />
       ) : (
@@ -660,6 +678,7 @@ export default function App() {
   const [piiMasking, setPiiMaskingState] = useState(false);
   const [paginationConfig, setPaginationConfigState] = useState<Record<string, PaginationConfig>>({});
   const [credentials, setCredentialsState] = useState<any[]>([]);
+  const [detectedRateLimit, setDetectedRateLimitState] = useState<RateLimitInfo | null>(null);
   const [targetBaseUrl, setTargetBaseUrlState] = useState('');
   const [syncing, setSyncing] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -743,6 +762,9 @@ export default function App() {
           setPaginationConfigState(data.paginationConfig);
         }
         if (Array.isArray(data.credentials)) setCredentialsState(data.credentials);
+        if (data.detectedRateLimit && typeof data.detectedRateLimit === 'object') {
+          setDetectedRateLimitState(data.detectedRateLimit);
+        }
       }
       setSyncing(false);
     }, (err) => {
@@ -796,6 +818,7 @@ export default function App() {
     setPiiMasking: (val: boolean) => { setPiiMaskingState(val); syncToCloud({ piiMasking: val }); },
     paginationConfig,
     credentials,
+    detectedRateLimit,
     isPro,
     targetBaseUrl,
     setTargetBaseUrl: (val: string) => { setTargetBaseUrlState(val); syncToCloud({ targetBaseUrl: val }); },

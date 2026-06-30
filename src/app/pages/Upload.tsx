@@ -23,7 +23,7 @@ export default function Upload() {
    * 2. CONTEXT EXTRACTION
    * resetWorkspace is used to clear stale deployment data when a new file is uploaded.
    */
-  const { setEndpoints, setTargetBaseUrl, resetWorkspace, setDetectedAuthSchemes } = useApp() as any;
+  const { setEndpoints, setTargetBaseUrl, resetWorkspace, setDetectedAuthSchemes, setDetectedRateLimit } = useApp() as any;
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<{ name: string; size: string } | null>(null);
@@ -112,10 +112,35 @@ export default function Upload() {
           return { name, authType, paramName, ...(tokenUrl && { tokenUrl }), ...(scopes && { scopes }) };
         });
 
+        // Detect rate limit info from spec
+        let rateLimitPerMinute = 60;
+        let rateLimitSource: 'spec' | 'header' | 'default' = 'default';
+        const infoX = (api.info || {}) as any;
+
+        if (infoX['x-ratelimit-limit'] || infoX['x-rate-limit-limit']) {
+          const raw = infoX['x-ratelimit-limit'] ?? infoX['x-rate-limit-limit'];
+          const val = parseInt(String(raw), 10);
+          if (!isNaN(val) && val > 0) { rateLimitPerMinute = val; rateLimitSource = 'spec'; }
+        } else if (infoX['x-rate-limit']) {
+          const v = infoX['x-rate-limit'];
+          const val = typeof v === 'number' ? v : parseInt(String(typeof v === 'object' ? v?.requests ?? v?.limit ?? v : v), 10);
+          if (!isNaN(val) && val > 0) { rateLimitPerMinute = val; rateLimitSource = 'spec'; }
+        } else if (infoX['x-throttling-control']?.requestsPerMinute) {
+          const val = parseInt(infoX['x-throttling-control'].requestsPerMinute, 10);
+          if (!isNaN(val) && val > 0) { rateLimitPerMinute = val; rateLimitSource = 'spec'; }
+        }
+
+        if (rateLimitSource === 'default') {
+          const compHeaders = ((api as any).components?.headers || {}) as Record<string, any>;
+          const rlNames = ['X-RateLimit-Limit', 'RateLimit-Limit', 'X-Rate-Limit-Limit', 'x-ratelimit-limit'];
+          if (rlNames.some(h => compHeaders[h])) rateLimitSource = 'header';
+        }
+
         if (typeof resetWorkspace === 'function') {
           await resetWorkspace();
         }
 
+        setDetectedRateLimit({ requestsPerMinute: rateLimitPerMinute, source: rateLimitSource });
         setDetectedAuthSchemes(detectedSchemes);
         setEndpoints(mappedEndpoints);
         if (suggestedUrl) {
