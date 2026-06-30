@@ -292,7 +292,7 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
   const { setDeploymentInfo } = useApp();
   const [copied, setCopied] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude'>('cursor');
+  const [activeTab, setActiveTab] = useState<'cursor' | 'cline' | 'claude' | 'install'>('cursor');
   
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(info.serverUrl);
@@ -305,6 +305,8 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
   };
+
+  const installCmd = `curl -fsSL https://raw.githubusercontent.com/eleayuen-png/mcp-backend/main/link.js -o mcp-link.js && node mcp-link.js ${info.serverUrl}`;
 
   const cursorSnippet = JSON.stringify({
     "mcpServers": {
@@ -381,64 +383,87 @@ export function DeploymentSuccess({ info, count }: { info: any, count: number })
       </div>
 
       <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col">
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#161e2e]">
-          {(['cursor', 'cline', 'claude'] as const).map(tab => (
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#161e2e] overflow-x-auto">
+          {(['cursor', 'cline', 'claude', 'install'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all ${
-                activeTab === tab 
-                  ? 'bg-blue-50 dark:bg-blue-600/10 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-500' 
+              className={`px-5 py-4 text-xs font-bold uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === tab
+                  ? 'bg-blue-50 dark:bg-blue-600/10 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-500'
                   : 'text-slate-500 hover:text-[#141B41] dark:hover:text-slate-300'
               }`}
             >
-              {tab === 'cursor' ? 'Cursor IDE' : tab === 'cline' ? 'Cline' : 'Claude Desktop'}
+              {tab === 'install' && <Zap className="w-3 h-3" />}
+              {tab === 'cursor' ? 'Cursor IDE' : tab === 'cline' ? 'Cline' : tab === 'claude' ? 'Claude Desktop' : 'Auto-Install'}
             </button>
           ))}
         </div>
 
-        <div className="flex flex-col lg:flex-row min-h-[300px]">
-          <div className="lg:w-1/3 p-6 border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-            <h3 className="text-sm font-bold text-[#141B41] dark:text-white mb-6 flex items-center gap-2">
-              <Pointer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Installation Steps
-            </h3>
-            <ul className="space-y-4">
-              {steps[activeTab].map((step, idx) => (
-                <li key={idx} className="flex gap-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                  <span className="flex items-center justify-center w-5 h-5 rounded bg-blue-100 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 font-bold shrink-0">
-                    {idx + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="flex-1 p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Code className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-xs font-bold text-[#141B41] dark:text-slate-300 uppercase tracking-widest">Snippet</span>
-              </div>
-              <button 
-                onClick={() => handleCopySnippet(activeTab === 'claude' ? claudeSnippet : cursorSnippet)}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1.5"
+        {activeTab === 'install' ? (
+          <div className="p-10 flex flex-col items-center text-center min-h-[300px] justify-center">
+            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-5">
+              <Terminal className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-bold text-[#141B41] dark:text-white mb-2">One-Command Setup</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md">
+              Automatically detects Claude Desktop and Cursor on your machine and injects the MCP config. Requires <strong>Node.js</strong> and <strong>curl</strong>.
+            </p>
+            <div className="w-full max-w-2xl bg-slate-900 dark:bg-black/50 border border-slate-800 rounded-xl p-4 text-left relative mb-3">
+              <pre className="text-[11px] font-mono text-green-400 whitespace-pre-wrap break-all pr-20">{installCmd}</pre>
+              <button
+                onClick={() => handleCopySnippet(installCmd)}
+                className="absolute top-3 right-3 text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg"
               >
-                {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Snippet</>}
+                {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy</>}
               </button>
             </div>
-            <div className="flex-1 bg-slate-900 dark:bg-black/40 border border-slate-800 rounded-xl p-4 overflow-hidden relative group">
-              <pre className="text-[11px] font-mono text-blue-100 h-full overflow-y-auto custom-scrollbar whitespace-pre-wrap">
-                {activeTab === 'claude' ? claudeSnippet : cursorSnippet}
-              </pre>
+            <p className="text-xs text-slate-400">Works on macOS, Linux, and Windows 10+</p>
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row min-h-[300px]">
+            <div className="lg:w-1/3 p-6 border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <h3 className="text-sm font-bold text-[#141B41] dark:text-white mb-6 flex items-center gap-2">
+                <Pointer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Installation Steps
+              </h3>
+              <ul className="space-y-4">
+                {steps[activeTab].map((step, idx) => (
+                  <li key={idx} className="flex gap-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                    <span className="flex items-center justify-center w-5 h-5 rounded bg-blue-100 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 font-bold shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 italic">
-              <Terminal className="w-3 h-3" />
-              {activeTab === 'claude' ? 'Paste this into your main config file.' : 'Add this as a new server in settings.'}
+
+            <div className="flex-1 p-6 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Code className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-bold text-[#141B41] dark:text-slate-300 uppercase tracking-widest">Snippet</span>
+                </div>
+                <button
+                  onClick={() => handleCopySnippet(activeTab === 'claude' ? claudeSnippet : cursorSnippet)}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1.5"
+                >
+                  {copiedSnippet ? <><Check className="w-3 h-3" /> Copied!</> : <><Copy className="w-3 h-3" /> Copy Snippet</>}
+                </button>
+              </div>
+              <div className="flex-1 bg-slate-900 dark:bg-black/40 border border-slate-800 rounded-xl p-4 overflow-hidden relative group">
+                <pre className="text-[11px] font-mono text-blue-100 h-full overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+                  {activeTab === 'claude' ? claudeSnippet : cursorSnippet}
+                </pre>
+              </div>
+              <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 italic">
+                <Terminal className="w-3 h-3" />
+                {activeTab === 'claude' ? 'Paste this into your main config file.' : 'Add this as a new server in settings.'}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
